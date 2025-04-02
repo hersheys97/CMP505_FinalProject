@@ -1,0 +1,200 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Other">
+      <UniqueIdentifier>{7a051902-a9df-4aaa-ab2c-9e192f6b11cb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Other\Imgui">
+      <UniqueIdentifier>{87f4acdb-8786-4ef7-8e4a-3eef1607d089}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Other\Config">
+      <UniqueIdentifier>558da2db-1cd8-4033-9858-2a5e9328268c</UniqueIdentifier>
+      <Extensions>ico;cur;bmp;dds;dlg;fbx;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tga;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Other\Common">
+      <UniqueIdentifier>be9b933c-5ba4-4b75-8a03-402244ddb78b</UniqueIdentifier>
+    </Filter>
+    <Filter Include="_Header">
+      <UniqueIdentifier>{9b8bf3a5-a48f-4806-804d-44d69617c21a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="_Header\Mesh">
+      <UniqueIdentifier>{4795f40e-b0e7-46fb-b120-1bdb7cd5681b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="_Header\Other">
+      <UniqueIdentifier>{17317257-21d4-4e01-9ac0-b27376b76654}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="_Header\PostProcess">
+      <UniqueIdentifier>{8060f404-79c3-46cf-8104-3aed951739d5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="_Shaders">
+      <UniqueIdentifier>{c1a2bea1-2060-410f-9495-d86e4c4840e8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="_Source">
+      <UniqueIdentifier>{ca874f63-8953-45cf-aa03-ac6ee8fad10c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="_Source\Mesh">
+      <UniqueIdentifier>{86906fde-f7fa-4fbe-8e70-dc377fef4c55}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="_Source\PostProcess">
+      <UniqueIdentifier>{f2a74d32-4660-4afb-8ac6-a50d438c49fb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="_Source\Other">
+      <UniqueIdentifier>{44258172-b389-462d-9fb4-e3189427263d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Other\Resources">
+      <UniqueIdentifier>{d1284d47-709b-40eb-ac5b-612d8a742c7d}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="StepTimer.h">
+      <Filter>Other\Common</Filter>
+    </ClInclude>
+    <ClInclude Include="DeviceResources.h">
+      <Filter>Other\Common</Filter>
+    </ClInclude>
+    <ClInclude Include="imconfig.h">
+      <Filter>Other\Imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui.h">
+      <Filter>Other\Imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui_internal.h">
+      <Filter>Other\Imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="imstb_rectpack.h">
+      <Filter>Other\Imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="imstb_textedit.h">
+      <Filter>Other\Imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="imstb_truetype.h">
+      <Filter>Other\Imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui_impl_dx11.h">
+      <Filter>Other\Imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui_impl_win32.h">
+      <Filter>Other\Imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="Terrain.h">
+      <Filter>_Header\Mesh</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderTexture.h">
+      <Filter>_Header\PostProcess</Filter>
+    </ClInclude>
+    <ClInclude Include="Camera.h">
+      <Filter>_Header\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="Light.h">
+      <Filter>_Header\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="modelclass.h">
+      <Filter>_Header\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="Shader.h">
+      <Filter>_Header\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="Game.h">
+      <Filter>_Header</Filter>
+    </ClInclude>
+    <ClInclude Include="Input.h">
+      <Filter>_Header</Filter>
+    </ClInclude>
+    <ClInclude Include="pch.h">
+      <Filter>_Header</Filter>
+    </ClInclude>
+    <ClInclude Include="ReadData.h">
+      <Filter>_Header</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="DeviceResources.cpp">
+      <Filter>Other\Common</Filter>
+    </ClCompile>
+    <ClCompile Include="imgui.cpp">
+      <Filter>Other\Imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="imgui_demo.cpp">
+      <Filter>Other\Imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="imgui_draw.cpp">
+      <Filter>Other\Imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="imgui_widgets.cpp">
+      <Filter>Other\Imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="imgui_impl_dx11.cpp">
+      <Filter>Other\Imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="imgui_impl_win32.cpp">
+      <Filter>Other\Imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="pch.cpp">
+      <Filter>_Source</Filter>
+    </ClCompile>
+    <ClCompile Include="Main.cpp">
+      <Filter>_Source</Filter>
+    </ClCompile>
+    <ClCompile Include="Input.cpp">
+      <Filter>_Source</Filter>
+    </ClCompile>
+    <ClCompile Include="Game.cpp">
+      <Filter>_Source</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderTexture.cpp">
+      <Filter>_Source\PostProcess</Filter>
+    </ClCompile>
+    <ClCompile Include="Terrain.cpp">
+      <Filter>_Source\Mesh</Filter>
+    </ClCompile>
+    <ClCompile Include="Shader.cpp">
+      <Filter>_Source\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="modelclass.cpp">
+      <Filter>_Source\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="Light.cpp">
+      <Filter>_Source\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="Camera.cpp">
+      <Filter>_Source\Other</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="SegoeUI_18.spritefont">
+      <Filter>Other\Resources</Filter>
+    </None>
+    <None Include="packages.config">
+      <Filter>Other\Config</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="colour_ps.hlsl">
+      <Filter>_Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="colour_vs.hlsl">
+      <Filter>_Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="light_ps.hlsl">
+      <Filter>_Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="light_vs.hlsl">
+      <Filter>_Shaders</Filter>
+    </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Manifest Include="settings.manifest">
+      <Filter>Other\Config</Filter>
+    </Manifest>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="directx.ico">
+      <Filter>Other\Resources</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="resource.rc">
+      <Filter>Other\Config</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+</Project>
