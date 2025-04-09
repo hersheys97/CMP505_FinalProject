@@ -5,6 +5,7 @@ using namespace DirectX;
 class Terrain
 {
 private:
+	ID3D11Device* m_device;
 	struct VertexType
 	{
 		DirectX::SimpleMath::Vector3 position;
@@ -26,8 +27,13 @@ public:
 	bool GenerateHeightMap(ID3D11Device*);
 	bool Update();
 	float* GetWavelength();
-
 	float* GetAmplitude();
+	bool RayIntersect(const DirectX::SimpleMath::Vector3& rayOrigin,
+		const DirectX::SimpleMath::Vector3& rayDirection,
+		float& distance,
+		DirectX::SimpleMath::Vector3& hitPoint);
+	void HandleCollision(ID3D11Device* device, const DirectX::SimpleMath::Vector3& collisionPoint);
+	bool GetHeightAtPosition(float x, float z, float& height, DirectX::SimpleMath::Vector3& normal);
 
 private:
 	bool CalculateNormals();
@@ -35,6 +41,12 @@ private:
 	void ShutdownBuffers();
 	bool InitializeBuffers(ID3D11Device*);
 	void RenderBuffers(ID3D11DeviceContext*);
+	bool RayTriangleIntersect(const DirectX::SimpleMath::Vector3& rayOrigin,
+		const DirectX::SimpleMath::Vector3& rayDirection,
+		const DirectX::SimpleMath::Vector3& v0,
+		const DirectX::SimpleMath::Vector3& v1,
+		const DirectX::SimpleMath::Vector3& v2,
+		float& distance);
 
 
 private:

@@ -131,7 +131,10 @@ void Game::Update(DX::StepTimer const& timer)
 	float rotationSpeed = m_Camera01.getRotationSpeed() * deltaTime;
 	float mouseRotationSpeed = rotationSpeed * m_Camera01.getMouseSensitivity();
 
-	// Apply speed boost if left shift is pressed
+
+
+
+
 	if (m_gameInputCommands.speedBoost)
 	{
 		moveSpeed *= 2.0f;
@@ -139,56 +142,131 @@ void Game::Update(DX::StepTimer const& timer)
 		mouseRotationSpeed *= 2.0f;
 	}
 
-	// Handle camera movement
-	if (m_gameInputCommands.forward)
-	{
-		Vector3 position = m_Camera01.getPosition();
-		position += (m_Camera01.getForward() * moveSpeed);
-		m_Camera01.setPosition(position);
-	}
-	if (m_gameInputCommands.back)
-	{
-		Vector3 position = m_Camera01.getPosition();
-		position -= (m_Camera01.getForward() * moveSpeed);
-		m_Camera01.setPosition(position);
-	}
-	if (m_gameInputCommands.left)
-	{
-		Vector3 position = m_Camera01.getPosition();
-		position -= (m_Camera01.getRight() * moveSpeed);
-		m_Camera01.setPosition(position);
-	}
-	if (m_gameInputCommands.right)
-	{
-		Vector3 position = m_Camera01.getPosition();
-		position += (m_Camera01.getRight() * moveSpeed);
-		m_Camera01.setPosition(position);
-	}
-	if (m_gameInputCommands.up)
-	{
-		Vector3 position = m_Camera01.getPosition();
-		position += (m_Camera01.getUp() * moveSpeed);
-		m_Camera01.setPosition(position);
-	}
-	if (m_gameInputCommands.down)
-	{
-		Vector3 position = m_Camera01.getPosition();
-		position -= (m_Camera01.getUp() * moveSpeed);
-		m_Camera01.setPosition(position);
-	}
-
+	// Perform ray casting collision detection
 	// Handle mouse look
 	if (m_gameInputCommands.mouseActive && !m_gameInputCommands.mouseJustActivated)
 	{
 		Vector3 rotation = m_Camera01.getRotation();
-
-		// Apply mouse movement to rotation
 		rotation.y += m_gameInputCommands.mouseDelta.x * mouseRotationSpeed;
 		rotation.x += m_gameInputCommands.mouseDelta.y * mouseRotationSpeed;
-
-		// Set rotation (clamping happens in setRotation)
 		m_Camera01.setRotation(rotation);
 	}
+
+	// Calculate new position based on input
+	Vector3 newPosition = m_Camera01.getPosition();
+	if (m_gameInputCommands.forward) newPosition += m_Camera01.getForward() * moveSpeed;
+	if (m_gameInputCommands.back)    newPosition -= m_Camera01.getForward() * moveSpeed;
+	if (m_gameInputCommands.left)    newPosition -= m_Camera01.getRight() * moveSpeed;
+	if (m_gameInputCommands.right)   newPosition += m_Camera01.getRight() * moveSpeed;
+	if (m_gameInputCommands.up)      newPosition += m_Camera01.getUp() * moveSpeed;
+	if (m_gameInputCommands.down)    newPosition -= m_Camera01.getUp() * moveSpeed;
+
+	// Collision detection and movement
+	{
+		Vector3 currentPos = m_Camera01.getPosition();
+		Vector3 moveDirection = newPosition - currentPos;
+		float moveDistance = moveDirection.Length();
+
+		if (moveDistance > 0.0f)
+		{
+			// Normalize properly - this is the key fix
+			moveDirection /= moveDistance;
+
+			float hitDistance;
+			Vector3 hitPoint;
+
+			if (!m_Terrain.RayIntersect(currentPos, moveDirection, hitDistance, hitPoint) ||
+				hitDistance > moveDistance)
+			{
+				m_Camera01.setPosition(newPosition);
+			}
+			else
+			{
+				m_Camera01.setPosition(currentPos + moveDirection * (hitDistance - 0.1f));
+			}
+		}
+	}
+
+	// Keep camera above terrain
+	Vector3 cameraPos = m_Camera01.getPosition();
+	float terrainHeight;
+	Vector3 terrainNormal;
+	if (m_Terrain.GetHeightAtPosition(cameraPos.x, cameraPos.z, terrainHeight, terrainNormal))
+	{
+		float minHeight = terrainHeight + 1.0f;
+		if (cameraPos.y < minHeight)
+		{
+			cameraPos.y = minHeight;
+			m_Camera01.setPosition(cameraPos);
+		}
+	}
+
+
+
+
+
+
+	//// Apply speed boost if left shift is pressed
+	//if (m_gameInputCommands.speedBoost)
+	//{
+	//	moveSpeed *= 2.0f;
+	//	rotationSpeed *= 2.0f;
+	//	mouseRotationSpeed *= 2.0f;
+	//}
+
+	//// Handle camera movement
+	//if (m_gameInputCommands.forward)
+	//{
+	//	Vector3 position = m_Camera01.getPosition();
+	//	position += (m_Camera01.getForward() * moveSpeed);
+	//	m_Camera01.setPosition(position);
+	//}
+	//if (m_gameInputCommands.back)
+	//{
+	//	Vector3 position = m_Camera01.getPosition();
+	//	position -= (m_Camera01.getForward() * moveSpeed);
+	//	m_Camera01.setPosition(position);
+	//}
+	//if (m_gameInputCommands.left)
+	//{
+	//	Vector3 position = m_Camera01.getPosition();
+	//	position -= (m_Camera01.getRight() * moveSpeed);
+	//	m_Camera01.setPosition(position);
+	//}
+	//if (m_gameInputCommands.right)
+	//{
+	//	Vector3 position = m_Camera01.getPosition();
+	//	position += (m_Camera01.getRight() * moveSpeed);
+	//	m_Camera01.setPosition(position);
+	//}
+	//if (m_gameInputCommands.up)
+	//{
+	//	Vector3 position = m_Camera01.getPosition();
+	//	position += (m_Camera01.getUp() * moveSpeed);
+	//	m_Camera01.setPosition(position);
+	//}
+	//if (m_gameInputCommands.down)
+	//{
+	//	Vector3 position = m_Camera01.getPosition();
+	//	position -= (m_Camera01.getUp() * moveSpeed);
+	//	m_Camera01.setPosition(position);
+	//}
+
+	//// Handle mouse look
+	//if (m_gameInputCommands.mouseActive && !m_gameInputCommands.mouseJustActivated)
+	//{
+	//	Vector3 rotation = m_Camera01.getRotation();
+
+	//	// Apply mouse movement to rotation
+	//	rotation.y += m_gameInputCommands.mouseDelta.x * mouseRotationSpeed;
+	//	rotation.x += m_gameInputCommands.mouseDelta.y * mouseRotationSpeed;
+
+	//	// Set rotation (clamping happens in setRotation)
+	//	m_Camera01.setRotation(rotation);
+	//}
+
+
+
 
 	if (m_gameInputCommands.generate)
 	{
@@ -263,9 +341,9 @@ void Game::Render()
 	context->OMSetBlendState(m_states->Opaque(), nullptr, 0xFFFFFFFF);
 	context->OMSetDepthStencilState(m_states->DepthDefault(), 0);
 	context->RSSetState(m_states->CullClockwise());
-	//	context->RSSetState(m_states->Wireframe());
+	context->RSSetState(m_states->Wireframe());
 
-		//prepare transform for floor object. 
+	//prepare transform for floor object. 
 	m_world = SimpleMath::Matrix::Identity; //set world back to identity
 	SimpleMath::Matrix newPosition3 = SimpleMath::Matrix::CreateTranslation(0.0f, -0.6f, 0.0f);
 	SimpleMath::Matrix newScale = SimpleMath::Matrix::CreateScale(0.1);		//scale the terrain down a little. 
