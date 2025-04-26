@@ -1,0 +1,72 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <ProjectOutputs>
+    <ProjectOutput>
+      <FullPath>D:\Abertay\Graphics2\Graphics\Final Project\x64\Debug\Coursework.exe</FullPath>
+    </ProjectOutput>
+  </ProjectOutputs>
+  <ContentFiles>
+    <ContentFile>
+      <FullPath>D:\Abertay\Graphics2\Graphics\Final Project\Coursework\bloom_ps.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>D:\Abertay\Graphics2\Graphics\Final Project\Coursework\bloom_vs.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>D:\Abertay\Graphics2\Graphics\Final Project\Coursework\depth_ps.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>D:\Abertay\Graphics2\Graphics\Final Project\Coursework\depth_vs.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>D:\Abertay\Graphics2\Graphics\Final Project\Coursework\dome_ps.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>D:\Abertay\Graphics2\Graphics\Final Project\Coursework\dome_vs.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>D:\Abertay\Graphics2\Graphics\Final Project\Coursework\firefly_ps.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>D:\Abertay\Graphics2\Graphics\Final Project\Coursework\firefly_vs.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>D:\Abertay\Graphics2\Graphics\Final Project\Coursework\moon_ps.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>D:\Abertay\Graphics2\Graphics\Final Project\Coursework\moon_vs.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>D:\Abertay\Graphics2\Graphics\Final Project\Coursework\terrainDepth_ds.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>D:\Abertay\Graphics2\Graphics\Final Project\Coursework\terrainDepth_hs.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>D:\Abertay\Graphics2\Graphics\Final Project\Coursework\terrainDepth_vs.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>D:\Abertay\Graphics2\Graphics\Final Project\Coursework\terrain_ds.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>D:\Abertay\Graphics2\Graphics\Final Project\Coursework\terrain_hs.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>D:\Abertay\Graphics2\Graphics\Final Project\Coursework\terrain_ps.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>D:\Abertay\Graphics2\Graphics\Final Project\Coursework\terrain_vs.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>D:\Abertay\Graphics2\Graphics\Final Project\Coursework\waterDepth_vs.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>D:\Abertay\Graphics2\Graphics\Final Project\Coursework\water_ps.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>D:\Abertay\Graphics2\Graphics\Final Project\Coursework\water_vs.cso</FullPath>
+    </ContentFile>
+  </ContentFiles>
+  <SatelliteDlls />
+  <NonRecipeFileRefs />
+</Project>

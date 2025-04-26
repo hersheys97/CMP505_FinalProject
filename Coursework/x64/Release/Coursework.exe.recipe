@@ -1,0 +1,72 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <ProjectOutputs>
+    <ProjectOutput>
+      <FullPath>C:\Users\91901\Desktop\Abertay\Graphics1\Graphics\Final Project\1GraphicsFinal\Coursework\x64\Release\Coursework.exe</FullPath>
+    </ProjectOutput>
+  </ProjectOutputs>
+  <ContentFiles>
+    <ContentFile>
+      <FullPath>C:\Users\91901\Desktop\Abertay\Graphics1\Graphics\Final Project\1GraphicsFinal\Coursework\x64\Release\bloom_ps.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\91901\Desktop\Abertay\Graphics1\Graphics\Final Project\1GraphicsFinal\Coursework\x64\Release\bloom_vs.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\91901\Desktop\Abertay\Graphics1\Graphics\Final Project\1GraphicsFinal\Coursework\x64\Release\depth_ps.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\91901\Desktop\Abertay\Graphics1\Graphics\Final Project\1GraphicsFinal\Coursework\x64\Release\depth_vs.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\91901\Desktop\Abertay\Graphics1\Graphics\Final Project\1GraphicsFinal\Coursework\x64\Release\dome_ps.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\91901\Desktop\Abertay\Graphics1\Graphics\Final Project\1GraphicsFinal\Coursework\x64\Release\dome_vs.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\91901\Desktop\Abertay\Graphics1\Graphics\Final Project\1GraphicsFinal\Coursework\x64\Release\firefly_ps.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\91901\Desktop\Abertay\Graphics1\Graphics\Final Project\1GraphicsFinal\Coursework\x64\Release\firefly_vs.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\91901\Desktop\Abertay\Graphics1\Graphics\Final Project\1GraphicsFinal\Coursework\x64\Release\moon_ps.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\91901\Desktop\Abertay\Graphics1\Graphics\Final Project\1GraphicsFinal\Coursework\x64\Release\moon_vs.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\91901\Desktop\Abertay\Graphics1\Graphics\Final Project\1GraphicsFinal\Coursework\x64\Release\terrainDepth_ds.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\91901\Desktop\Abertay\Graphics1\Graphics\Final Project\1GraphicsFinal\Coursework\x64\Release\terrainDepth_hs.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\91901\Desktop\Abertay\Graphics1\Graphics\Final Project\1GraphicsFinal\Coursework\x64\Release\terrainDepth_vs.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\91901\Desktop\Abertay\Graphics1\Graphics\Final Project\1GraphicsFinal\Coursework\x64\Release\terrain_ds.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\91901\Desktop\Abertay\Graphics1\Graphics\Final Project\1GraphicsFinal\Coursework\x64\Release\terrain_hs.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\91901\Desktop\Abertay\Graphics1\Graphics\Final Project\1GraphicsFinal\Coursework\x64\Release\terrain_ps.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\91901\Desktop\Abertay\Graphics1\Graphics\Final Project\1GraphicsFinal\Coursework\x64\Release\terrain_vs.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\91901\Desktop\Abertay\Graphics1\Graphics\Final Project\1GraphicsFinal\Coursework\x64\Release\waterDepth_vs.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\91901\Desktop\Abertay\Graphics1\Graphics\Final Project\1GraphicsFinal\Coursework\x64\Release\water_ps.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\91901\Desktop\Abertay\Graphics1\Graphics\Final Project\1GraphicsFinal\Coursework\x64\Release\water_vs.cso</FullPath>
+    </ContentFile>
+  </ContentFiles>
+  <SatelliteDlls />
+  <NonRecipeFileRefs />
+</Project>

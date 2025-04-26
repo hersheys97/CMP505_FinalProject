@@ -1,0 +1,197 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Header Files\Mesh">
+      <UniqueIdentifier>{67de6143-cd34-4322-9e97-360525e495ea}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\RtT">
+      <UniqueIdentifier>{69e64eec-f75b-4a9d-bff0-3fafa795519c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\ShadowDepth">
+      <UniqueIdentifier>{29da4305-cc0b-43d9-a484-e223ba4e27e5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Mesh">
+      <UniqueIdentifier>{e43e0867-14af-4918-9399-dafb8e3e71fc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ShadowDepth">
+      <UniqueIdentifier>{74863e8e-4543-4a0a-9a19-af294e993561}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\RtT">
+      <UniqueIdentifier>{d8d3e264-6e0e-48b3-bb38-734effdeaf30}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\Depth">
+      <UniqueIdentifier>{c210b45d-81be-407c-8c9e-4e864e22c2e1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\Depth\TerrainDepth">
+      <UniqueIdentifier>{b592b820-0112-4ec0-a37b-7ef31012ac25}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\Depth\WaterDepth">
+      <UniqueIdentifier>{142b9b04-078f-4018-ae69-24392a12d2a5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\Mesh">
+      <UniqueIdentifier>{5d295fe2-25fb-4877-a281-414616c2b570}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\Mesh\Water">
+      <UniqueIdentifier>{8b824779-2dd7-4d93-a9ff-dfdf4e911e01}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\Mesh\Terrain">
+      <UniqueIdentifier>{cbe7f02e-d15c-45e9-b5de-854499861c27}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\Mesh\Moon">
+      <UniqueIdentifier>{0e705889-fec1-4c55-ab3c-d00253f53f4e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\Mesh\Firefly">
+      <UniqueIdentifier>{ee06929e-50ad-40c2-9c06-5ed255e70114}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\Mesh\Dome">
+      <UniqueIdentifier>{020c3839-7e6d-4d90-854d-a2689c680951}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\RtT">
+      <UniqueIdentifier>{8bc9e740-1560-4b19-85f8-eec07fef4944}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="App1.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="FireflyShader.cpp">
+      <Filter>Source Files\Mesh</Filter>
+    </ClCompile>
+    <ClCompile Include="MoonShader.cpp">
+      <Filter>Source Files\Mesh</Filter>
+    </ClCompile>
+    <ClCompile Include="TerrainManipulation.cpp">
+      <Filter>Source Files\Mesh</Filter>
+    </ClCompile>
+    <ClCompile Include="WaterShader.cpp">
+      <Filter>Source Files\Mesh</Filter>
+    </ClCompile>
+    <ClCompile Include="DomeShader.cpp">
+      <Filter>Source Files\Mesh</Filter>
+    </ClCompile>
+    <ClCompile Include="WaterDepthShader.cpp">
+      <Filter>Source Files\ShadowDepth</Filter>
+    </ClCompile>
+    <ClCompile Include="TerrainDepthShader.cpp">
+      <Filter>Source Files\ShadowDepth</Filter>
+    </ClCompile>
+    <ClCompile Include="DepthShader.cpp">
+      <Filter>Source Files\ShadowDepth</Filter>
+    </ClCompile>
+    <ClCompile Include="Bloom.cpp">
+      <Filter>Source Files\RtT</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="App1.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SceneData.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DomeShader.h">
+      <Filter>Header Files\Mesh</Filter>
+    </ClInclude>
+    <ClInclude Include="FireflyShader.h">
+      <Filter>Header Files\Mesh</Filter>
+    </ClInclude>
+    <ClInclude Include="MoonShader.h">
+      <Filter>Header Files\Mesh</Filter>
+    </ClInclude>
+    <ClInclude Include="TerrainManipulation.h">
+      <Filter>Header Files\Mesh</Filter>
+    </ClInclude>
+    <ClInclude Include="WaterShader.h">
+      <Filter>Header Files\Mesh</Filter>
+    </ClInclude>
+    <ClInclude Include="depthShader.h">
+      <Filter>Header Files\ShadowDepth</Filter>
+    </ClInclude>
+    <ClInclude Include="WaterDepthShader.h">
+      <Filter>Header Files\ShadowDepth</Filter>
+    </ClInclude>
+    <ClInclude Include="TerrainDepthShader.h">
+      <Filter>Header Files\ShadowDepth</Filter>
+    </ClInclude>
+    <ClInclude Include="Bloom.h">
+      <Filter>Header Files\RtT</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="bloom_ps.hlsl">
+      <Filter>Resource Files\RtT</Filter>
+    </FxCompile>
+    <FxCompile Include="bloom_vs.hlsl">
+      <Filter>Resource Files\RtT</Filter>
+    </FxCompile>
+    <FxCompile Include="depth_ps.hlsl">
+      <Filter>Resource Files\Depth</Filter>
+    </FxCompile>
+    <FxCompile Include="depth_vs.hlsl">
+      <Filter>Resource Files\Depth</Filter>
+    </FxCompile>
+    <FxCompile Include="dome_ps.hlsl">
+      <Filter>Resource Files\Mesh\Dome</Filter>
+    </FxCompile>
+    <FxCompile Include="dome_vs.hlsl">
+      <Filter>Resource Files\Mesh\Dome</Filter>
+    </FxCompile>
+    <FxCompile Include="firefly_ps.hlsl">
+      <Filter>Resource Files\Mesh\Firefly</Filter>
+    </FxCompile>
+    <FxCompile Include="firefly_vs.hlsl">
+      <Filter>Resource Files\Mesh\Firefly</Filter>
+    </FxCompile>
+    <FxCompile Include="moon_ps.hlsl">
+      <Filter>Resource Files\Mesh\Moon</Filter>
+    </FxCompile>
+    <FxCompile Include="moon_vs.hlsl">
+      <Filter>Resource Files\Mesh\Moon</Filter>
+    </FxCompile>
+    <FxCompile Include="terrain_ds.hlsl">
+      <Filter>Resource Files\Mesh\Terrain</Filter>
+    </FxCompile>
+    <FxCompile Include="terrain_hs.hlsl">
+      <Filter>Resource Files\Mesh\Terrain</Filter>
+    </FxCompile>
+    <FxCompile Include="terrain_ps.hlsl">
+      <Filter>Resource Files\Mesh\Terrain</Filter>
+    </FxCompile>
+    <FxCompile Include="terrain_vs.hlsl">
+      <Filter>Resource Files\Mesh\Terrain</Filter>
+    </FxCompile>
+    <FxCompile Include="terrainDepth_ds.hlsl">
+      <Filter>Resource Files\Depth\TerrainDepth</Filter>
+    </FxCompile>
+    <FxCompile Include="terrainDepth_hs.hlsl">
+      <Filter>Resource Files\Depth\TerrainDepth</Filter>
+    </FxCompile>
+    <FxCompile Include="terrainDepth_vs.hlsl">
+      <Filter>Resource Files\Depth\TerrainDepth</Filter>
+    </FxCompile>
+    <FxCompile Include="waterDepth_vs.hlsl">
+      <Filter>Resource Files\Depth\WaterDepth</Filter>
+    </FxCompile>
+    <FxCompile Include="water_ps.hlsl">
+      <Filter>Resource Files\Mesh\Water</Filter>
+    </FxCompile>
+    <FxCompile Include="water_vs.hlsl">
+      <Filter>Resource Files\Mesh\Water</Filter>
+    </FxCompile>
+  </ItemGroup>
+</Project>

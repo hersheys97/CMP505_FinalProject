@@ -1,0 +1,329 @@
+/** Terrain: Pixel Shader Code **/
+
+/****************************************************************************************************************************/
+
+// Textures and samplers for different types of data
+Texture2D terrainHeightMap : register(t0); // Height map for the terrain
+SamplerState terrainSampler : register(s0); // Sampler for the terrain height map
+
+Texture2D textureHeightMap : register(t1); // Texture map for additional terrain details
+SamplerState textureHeightSampler : register(s1); // Sampler for the texture height map
+
+Texture2D firstTexture : register(t2); // First texture for terrain coloring
+SamplerState firstSampler : register(s2); // Sampler for the first texture
+
+Texture2D secondTexture : register(t3); // Second texture for blending terrain colour
+SamplerState secondSampler : register(s3); // Sampler for the second texture
+
+Texture2D depthMapSpotlight : register(t4); // Shadow depth map texture - spotlight 
+SamplerState sampleSpotlight : register(s4); // Sampler for the depth map
+
+Texture2D depthMapDirectional : register(t5); // Shadow depth map texture - Directional light
+SamplerState sampleDirectional : register(s5); // Sampler for the depth map
+
+/****************************************************************************************************************************/
+
+// Constant buffer to store lighting information and material properties
+cbuffer LightBuffer : register(b0)
+{
+    float4 ambientColour; // Ambient light colour
+    float4 diffuseColour; // Diffuse light colour
+
+    // Point light 1 properties
+    float3 pointLight1Pos; // Position of point light 1
+    float pointLight1Radius; // Radius of point light 1's influence
+    float4 pointLight1Colour; // Colour of point light 1
+
+    // Point light 2 properties
+    float3 pointLight2Pos; // Position of point light 2
+    float pointLight2Radius; // Radius of point light 2's influence
+    float4 pointLight2Colour; // Colour of point light 2
+
+    // Spotlight (moonlight) properties
+    float4 spotlightColour; // Colour of the spotlight
+    float spotlightCutoff; // Cutoff angle for spotlight cone
+    float3 spotlightDirection; // Direction of the spotlight
+    float spotlightFalloff; // Falloff rate of spotlight intensity
+    float3 moonPos; // Position of the spotlight source
+
+    // Specular lighting properties
+    float4 specularColour; // Specular highlight colour
+    float specularPower; // Specular intensity control
+    
+    float3 directionalLightDirection; // Directional light direction
+    float4 directionalColour; // directional light colour
+};
+
+/****************************************************************************************************************************/
+
+// Struct to define the input to the pixel shader
+struct InputType
+{
+    float4 position : SV_POSITION; // Vertex position in clip space
+    float2 tex : TEXCOORD0; // Texture coordinates
+    float3 normal : NORMAL; // Surface normal
+    float3 worldNormal : TEXCOORD1; // Normal in world space
+    float3 worldPosition : TEXCOORD2; // Vertex position in world space
+    float4 lightViewPos : TEXCOORD3; // Position in light's view space - Spotlight
+    float3 viewVector : TEXCOORD4; // Vector from vertex to camera
+    float4 lightViewPos2 : TEXCOORD5; // Position in light's view space - Direcitonal
+};
+
+
+/****************************************************************************************************************************/
+
+// Function to retrieve height data from the terrain height map
+float GetTerrainHeight(float2 uv)
+{
+    // Sample the red channel of the height map and scale the value
+    return terrainHeightMap.Sample(terrainSampler, uv).r * 20.0f;
+}
+
+// Function to retrieve height data for soil details
+float GetSoilHeight(float2 uv)
+{
+    // Sample the red channel of the soil height map and scale it
+    return textureHeightMap.SampleLevel(textureHeightSampler, uv, 0).r * 5.0f;
+}
+
+// Normals Calculation: Normals are derived from height differences in all four directions using texel offsets. Tangent and bitangent vectors are created from these height differences, and their cross product gives the surface normal.
+// Author = Erin Hughes
+// Function to calculate terrain normal using height differences
+float3 CalcNormal(float2 uv)
+{
+    float tw = 256.0f; // Texture width (used for offset)
+    float uvOffset = 1.f / tw; // Offset for sampling nearby heights
+    float WorldStep = 100.0f * uvOffset; // World space adjustment for offset
+
+    // Sample height in four directions to calculate slope
+    float heightN = GetTerrainHeight(uv + float2(0.0f, uvOffset)) + GetSoilHeight(uv + float2(0.0f, uvOffset));
+    float heightS = GetTerrainHeight(uv - float2(0.0f, uvOffset)) + GetSoilHeight(uv - float2(0.0f, uvOffset));
+    float heightE = GetTerrainHeight(uv + float2(uvOffset, 0.0f)) + GetSoilHeight(uv + float2(uvOffset, 0.0f));
+    float heightW = GetTerrainHeight(uv - float2(uvOffset, 0.0f)) + GetSoilHeight(uv - float2(uvOffset, 0.0f));
+    float height = GetTerrainHeight(uv) + GetSoilHeight(uv);
+
+    // Create tangents and bitangents based on slope differences
+    float3 tan1 = normalize(float3(WorldStep, heightE - height, 0.0f));
+    float3 tan2 = normalize(float3(-WorldStep, heightW - height, 0.0f));
+    float3 bi1 = normalize(float3(0.0f, heightN - height, WorldStep));
+    float3 bi2 = normalize(float3(0.0f, heightS - height, -WorldStep));
+
+    // Combine normals using cross products for smooth result
+    float3 crossProduct = cross(tan1, bi2) + cross(bi2, tan2) + cross(tan2, bi1) + cross(bi1, tan1);
+
+    // Normalize final normal and average contributions
+    return normalize(crossProduct) * 0.25f;
+}
+
+/****************************************************************************************************************************/
+
+// Directional Light: Light intensity is based on the dot product of the surface normal and light direction, clamped between 0 and 1. The directional light color is scaled by this intensity.
+// This function calculates the contribution of a directional light source.
+float4 CalculateDirectionalLight(float3 normal)
+{
+    // Normalize the light direction vector.
+    float3 dir = normalize(directionalLightDirection);
+
+    // Compute the intensity of light based on the angle between the surface normal and light direction.
+    float intensity = saturate(dot(normal, -dir)); // Saturate clamps between 0 and 1.
+
+    // Return the light colour scaled by its intensity, blending with ambient and diffuse colours.
+    return intensity * directionalColour;
+}
+
+/****************************************************************************************************************************/
+
+// Point Lights: Attenuation decreases light intensity as distance increases, calculated using the distance squared from the light source. The final color scales with the attenuation and diffuse intensity.
+// For 2 point lights
+float4 CalculatePointLight(float3 lightPos, float pointRadius, float3 worldPos, float3 normal, float4 lightColour)
+{
+    // Compute the vector from the light source to the fragment's world position.
+    float3 lightDir = lightPos - worldPos;
+
+    // Calculate the distance from the light source to the fragment.
+    float distance = length(lightDir);
+
+    // Apply a threshold to prevent too strong light near the surface.
+    float threshold = 2.f; // Define the threshold distance where light stops increasing
+    float minDistance = max(distance - pointRadius, threshold); // Ensures minimum distance effect
+    
+    // Compute attenuation based on distance with a threshold applied.
+    float attenuation = 1.0 / (minDistance * minDistance);
+
+    // Normalize the light direction for accurate calculations.
+    lightDir = normalize(lightDir);
+
+    // Calculate the diffuse lighting intensity using the surface normal and light direction.
+    float diffuse = max(dot(normal, lightDir), 0.0);
+
+    // Return the final point light contribution with attenuation applied.
+    return diffuse * lightColour * attenuation;
+}
+
+/****************************************************************************************************************************/
+
+// Spotlight: The spotlight effect is based on the angle between the light direction and spotlight direction. Light diminishes near the edges of the spotlight using a falloff factor, with attenuation based on distance.
+// Spotlight calculation
+float4 CalculateSpotlight(float3 moonPos, float3 lightDirection, float cutoff, float falloff, float3 worldPos, float3 normal, float4 lightColour)
+{
+    lightDirection = normalize(lightDirection);
+
+    // Initialize the final spotlight contribution as zero.
+    float3 finalColor = float3(0.0f, 0.0f, 0.0f);
+
+    // Set spotlight range and brightness factors for its intensity.
+    float range = 150.0f; // Effective range of the spotlight.
+    float brightnessFactor = 8.0f; // Controls spotlight brightness.
+
+    // Compute the light vector and distance from the light to the fragment.
+    float3 lightVector = moonPos - worldPos;
+    float distance = length(lightVector);
+    float3 lightDir = normalize(lightVector);
+
+    // Calculate the diffuse lighting contribution.
+    float diffuseFactor = max(dot(normal, lightDir), 0.0f);
+
+    // Check if the fragment is within the spotlight's range and is lit.
+    if (diffuseFactor > 0.0f && distance <= range)
+    {
+        // Compute the spotlight effect based on the angle between its direction and the light vector.
+        float spotEffect = dot(normalize(-lightDirection), lightDir);
+        spotEffect = saturate(spotEffect); // Clamp -> [0, 1].
+
+        // Check if the angle is within the spotlight's cutoff.
+        if (spotEffect > cutoff)
+        {
+            // Apply a falloff factor to the spotlight's intensity.
+            float angleEffect = pow(spotEffect, falloff);
+
+            // Calculate linear attenuation based on the distance from the spotlight.
+            float attenuation = saturate(1.0f - (distance / range));
+
+            // Combine all factors to compute the final spotlight contribution.
+            finalColor += lightColour.rgb * diffuseFactor * angleEffect * attenuation * brightnessFactor;
+        }
+    }
+
+    // Return the spotlight contribution with the original alpha value.
+    return float4(saturate(finalColor), lightColour.a);
+}
+
+/****************************************************************************************************************************/
+
+// Specular Lighting: The halfway vector between the view direction and light direction determines the specular intensity. Sharpness is controlled by the specular power and glossiness factor.
+// Specular lighting for spotlight
+float4 CalculateSpecularLight(float3 lightDirection, float3 normal, float3 viewVector, float4 colour, float power)
+{
+    lightDirection = normalize(lightDirection);
+    viewVector = normalize(viewVector);
+    normal = normalize(normal);
+
+    // Calculate the halfway vector between the light direction and the view direction
+    float3 halfway = normalize(lightDirection + viewVector);
+
+    // Compute the intensity of the specular reflection.
+    float specIntensity = pow(max(dot(normal, halfway), 0.0), power);
+
+    // Glossiness to control the sharpness of the highlight
+    float glossiness = 0.8;
+    specIntensity *= glossiness;
+
+    // Return the final specular light contribution
+    return colour * specIntensity;
+}
+
+/****************************************************************************************************************************/
+
+// Shadow Mapping
+// Shadow Mapping: The function converts light space positions into texture coordinates to sample the shadow map. Depth values are compared to detect whether a fragment is in shadow, with a bias applied to reduce shadow acne.
+// Author: Ruth Falconer
+// Converts the light's view-space position into texture coordinates for shadow mapping
+float2 getProjectiveCoords(float4 lightViewPosition)
+{
+    float2 projTex = lightViewPosition.xy / lightViewPosition.w; // Perspective divide to normalize coordinates
+    projTex = projTex * 0.5f + 0.5f; // normalized coordinates from [-1, 1] to [0, 1]
+    return projTex;
+}
+
+// Determines if a fragment is in shadow using the shadow map and bias
+bool isInShadow(Texture2D shadowMap, float2 uv, float4 lightViewPosition, float bias, int index)
+{
+    float depthValue;
+    if (index = 0)
+        depthValue = shadowMap.Sample(sampleSpotlight, uv).r; // Sample the shadow map to get the stored depth value.
+    else
+        depthValue = shadowMap.Sample(sampleDirectional, uv).r; // Sample the shadow map to get the stored depth value.
+    
+    float lightDepthValue = lightViewPosition.z / lightViewPosition.w; // Compute the depth of the current fragment in light space.
+    lightDepthValue -= bias; // Apply a bias to reduce shadow artifacts (e.g., shadow acne).
+
+    // Compare the fragment's depth with the shadow map's depth, using a small epsilon to avoid hard edges.
+    return lightDepthValue > depthValue + 0.001f; // Return true if the fragment is in shadow.
+}
+
+/****************************************************************************************************************************/
+
+// Main Shader Function
+float4 main(InputType input) : SV_TARGET
+{
+    // Calculate height map and add terrain texture colour
+    
+    float3 heightMap = CalcNormal(input.tex);
+    float3 terrainNormal = normalize(heightMap);
+
+    float4 soilColour0 = firstTexture.Sample(firstSampler, input.tex);
+    float4 soilColour1 = secondTexture.Sample(secondSampler, input.tex);
+
+    float4 terrainColour = 0.7f * soilColour0 + 0.3f * soilColour1; // Blending the two terrain textures
+
+    /****************************************************************************************************************************/
+    
+    // Calculate directional light
+    float4 directionalLight = CalculateDirectionalLight(normalize(input.normal));
+    
+    /****************************************************************************************************************************/
+    
+    // Calculate point lights
+    float4 pointLight1 = CalculatePointLight(pointLight1Pos, pointLight1Radius, input.worldPosition, terrainNormal, pointLight1Colour);
+    float4 pointLight2 = CalculatePointLight(pointLight2Pos, pointLight2Radius, input.worldPosition, terrainNormal, pointLight2Colour);
+    
+    // Point lights intensity
+    float intensityFactor = 150.0f;
+    pointLight1 *= intensityFactor;
+    pointLight2 *= intensityFactor;
+    
+    /****************************************************************************************************************************/
+    
+    // Calculate spotlight (moonlight)
+    float4 spotlight = CalculateSpotlight(moonPos, spotlightDirection, spotlightCutoff, spotlightFalloff, input.worldPosition, normalize(input.worldNormal), spotlightColour);
+    float3 normalizedSpotlightDirection = normalize(spotlightDirection);
+
+    // Calculate specular light from the spotlight
+    float4 specular = CalculateSpecularLight(normalizedSpotlightDirection, normalize(input.worldNormal), input.viewVector, specularColour, specularPower);
+    
+    /****************************************************************************************************************************/
+    
+    // Calculate shadow factor for directional light using shadow mapping.
+    float2 shadowUV = getProjectiveCoords(input.lightViewPos); // Convert light-space position to shadow map coordinates
+    bool shadowed = isInShadow(depthMapSpotlight, shadowUV, input.lightViewPos, 0.005f, 0); // Check if the fragment is in shadow
+    float shadowFactor = shadowed ? 0.005f : 1.0f; // Reduce light intensity if the fragment is in shadow
+    
+    float2 shadowUV2 = getProjectiveCoords(input.lightViewPos2); // Convert light-space position to shadow map coordinates
+    bool shadowed2 = isInShadow(depthMapDirectional, shadowUV2, input.lightViewPos2, 0.005f, 1); // Check if the fragment is in shadow
+    float shadowFactor2 = shadowed2 ? 0.005f : 1.0f; // Reduce light intensity if the fragment is in shadow
+    
+    /****************************************************************************************************************************/
+    
+    // Combine all lighting
+    float4 finalColour = (ambientColour * terrainColour) + pointLight1 + pointLight2 + (directionalLight * shadowFactor2) + (spotlight * shadowFactor);
+    
+    finalColour += specular;
+    finalColour = saturate(finalColour * terrainColour);
+    
+    //Apply gamma correction
+    //finalColour = pow(finalColour, 1.0f / 2.2f);
+    
+    finalColour.w = 1.f; // Setting alpha
+    
+    return finalColour; // pow(finalColour, 2.2f)
+}
