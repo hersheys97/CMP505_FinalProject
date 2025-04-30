@@ -76,14 +76,14 @@ struct InputType
 float GetTerrainHeight(float2 uv)
 {
     // Sample the red channel of the height map and scale the value
-    return terrainHeightMap.Sample(terrainSampler, uv).r * 20.0f;
+    return terrainHeightMap.Sample(terrainSampler, uv).r; // * 20.0f
 }
 
 // Function to retrieve height data for soil details
 float GetSoilHeight(float2 uv)
 {
     // Sample the red channel of the soil height map and scale it
-    return textureHeightMap.SampleLevel(textureHeightSampler, uv, 0).r * 5.0f;
+    return textureHeightMap.SampleLevel(textureHeightSampler, uv, 0).r; // * 5.0f
 }
 
 // Normals Calculation: Normals are derived from height differences in all four directions using texel offsets. Tangent and bitangent vectors are created from these height differences, and their cross product gives the surface normal.

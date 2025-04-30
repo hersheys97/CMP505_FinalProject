@@ -23,6 +23,7 @@ public:
 	//~FPCamera();
 
 	void move(float dt);	///< Move camera, handles basic camera movement
+	void setLookAt(float targetX, float targetY, float targetZ);
 
 private:
 	Input* input;

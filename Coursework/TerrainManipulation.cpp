@@ -1,4 +1,5 @@
-#include "TerrainManipulation.h"
+﻿#include "TerrainManipulation.h"
+#include <cmath>
 
 TerrainManipulation::TerrainManipulation(ID3D11Device* device, HWND hwnd) : BaseShader(device, hwnd)
 {
@@ -113,13 +114,17 @@ void TerrainManipulation::initShader(const wchar_t* vsFilename, const wchar_t* h
 	renderer->CreateBuffer(&bufferDesc, NULL, &cameraBuffer);
 
 	// Create a terrain sampler state description.
-	samplerDesc.Filter = D3D11_FILTER_ANISOTROPIC;
+	samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
 	samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
 	samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
 	samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
 	samplerDesc.MipLODBias = 0.0f;
 	samplerDesc.MaxAnisotropy = 1;
 	samplerDesc.ComparisonFunc = D3D11_COMPARISON_ALWAYS;
+	samplerDesc.BorderColor[0] = 0;
+	samplerDesc.BorderColor[1] = 0;
+	samplerDesc.BorderColor[2] = 0;
+	samplerDesc.BorderColor[3] = 0;
 	samplerDesc.MinLOD = 0;
 	samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
 	renderer->CreateSamplerState(&samplerDesc, &terrainSampleState);
@@ -151,6 +156,35 @@ void TerrainManipulation::initShader(const wchar_t* vsFilename, const wchar_t* h
 	renderer->CreateSamplerState(&spotShadowDesc, &shadowSample1);
 	renderer->CreateSamplerState(&spotShadowDesc, &shadowSample2);
 }
+
+
+float TerrainManipulation::getHeight(float x, float z) const {
+
+	// simple sinusoidal hills, amplitude and freq can be tuned
+	return sin(x * HEIGHT_FREQ) * cos(z * HEIGHT_FREQ) * HEIGHT_AMPLITUDE;
+}
+
+bool TerrainManipulation::isOnTerrain(float x, float z) const {
+	return (x >= TERRAIN_MIN_X && x <= TERRAIN_MAX_X &&
+		z >= TERRAIN_MIN_Z && z <= TERRAIN_MAX_Z);
+}
+
+XMFLOAT3 TerrainManipulation::getNormal(float x, float z) const {
+	// central difference to approximate gradient
+	float hL = getHeight(x - NORMAL_DELTA, z);
+	float hR = getHeight(x + NORMAL_DELTA, z);
+	float hD = getHeight(x, z - NORMAL_DELTA);
+	float hU = getHeight(x, z + NORMAL_DELTA);
+
+	XMFLOAT3 n;
+	n.x = hL - hR;
+	n.y = 2 * NORMAL_DELTA;
+	n.z = hD - hU;
+	XMVECTOR vn = XMVector3Normalize(XMLoadFloat3(&n));
+	XMStoreFloat3(&n, vn);
+	return n;
+}
+
 
 void TerrainManipulation::setShaderParameters(ID3D11DeviceContext* deviceContext, const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, ID3D11ShaderResourceView* terrain, ID3D11ShaderResourceView* texture_height, ID3D11ShaderResourceView* texture_colour, ID3D11ShaderResourceView* texture_colour1, ID3D11ShaderResourceView* depth1, ID3D11ShaderResourceView* depth2, Camera* camera, Light* light, Light* directionalLight, SceneData* sceneData)
 {

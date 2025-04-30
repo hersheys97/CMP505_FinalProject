@@ -87,7 +87,7 @@ void FPCamera::move(float dt)
 		SetCursorPos(cursor.x, cursor.y);
 		input->setMouseX(winWidth / 2);
 		input->setMouseY(winHeight / 2);
-		
+
 		// set mouse tracking as active and hide mouse cursor
 		input->setMouseActive(true);
 		ShowCursor(false);
@@ -120,5 +120,30 @@ void FPCamera::move(float dt)
 	//		ShowCursor(false);
 	//	}
 	//}
+	update();
+}
+
+void FPCamera::setLookAt(float targetX, float targetY, float targetZ)
+{
+	// Get current camera position
+	XMFLOAT3 camPos = getPosition(); // Assuming you have this method
+
+	// Calculate direction vector from camera to target
+	XMFLOAT3 direction;
+	direction.x = targetX - camPos.x;
+	direction.y = targetY - camPos.y;
+	direction.z = targetZ - camPos.z;
+
+	// Calculate yaw (rotation around Y axis)
+	float yaw = atan2f(direction.x, direction.z);
+
+	// Calculate pitch (rotation around X axis)
+	float distance = sqrtf(direction.x * direction.x + direction.z * direction.z);
+	float pitch = -atan2f(direction.y, distance);
+
+	// Convert to degrees and set the rotation
+	setRotation(XMConvertToDegrees(pitch), XMConvertToDegrees(yaw), 0.0f);
+
+	// Update camera vectors
 	update();
 }

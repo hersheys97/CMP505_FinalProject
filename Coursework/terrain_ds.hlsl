@@ -64,14 +64,14 @@ struct OutputType
 float GetTerrainHeight(float2 uv)
 {
     // Sample the red channel of the height map and scale the value
-    return terrainTexture.SampleLevel(terrainSample, uv, 0).r * 20.0f;
+    return terrainTexture.SampleLevel(terrainSample, uv, 0).r; // * 20.0f
 }
 
 // Function to retrieve height data for soil details
 float GetSoilHeight(float2 uv)
 {
     // Sample the red channel of the soil height map and scale it
-    return soilHeightTexture.SampleLevel(soilHeightSample, uv, 0).r * 5.0f;
+    return soilHeightTexture.SampleLevel(soilHeightSample, uv, 0).r; //  * 5.0f
 }
 
 /****************************************************************************************************************************/
@@ -88,10 +88,10 @@ OutputType main(ConstantOutputType input, float3 uvCoord : SV_DomainLocation, co
     float2 texCoords = uvCoord.x * patch[0].tex + uvCoord.y * patch[1].tex + uvCoord.z * patch[2].tex;
     
     // Adjust terrain hovering height
-    vertexPosition.y -= 5.5f;
+    //vertexPosition.y -= 20.5f;
     
     // Adjust heigh based on terrain and soil height maps
-    vertexPosition.y += GetTerrainHeight(texCoords) + GetSoilHeight(texCoords);
+    //vertexPosition.y += GetTerrainHeight(texCoords) + GetSoilHeight(texCoords);
     
     // World space transformation (to clip space)
     float4 worldPos = mul(float4(vertexPosition, 1.0f), worldMatrix);

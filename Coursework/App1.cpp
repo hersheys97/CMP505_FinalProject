@@ -1,4 +1,8 @@
 #include "App1.h"
+#include <DirectXMath.h>
+using namespace DirectX;
+
+AppMode currentMode = AppMode::FlyCam;
 
 App1::App1() {
 	circleDome = nullptr;
@@ -43,9 +47,11 @@ bool App1::render() {
 	renderer->beginScene(0.15f, 0.1f, 0.3f, 1.0f);
 	renderer->setAlphaBlending(true);
 
-	camera->update();
-
 	// Set up the lights from Scene Data
+	XMFLOAT3 playerPos = player->getPosition();
+
+	// Update SceneData with player's light position
+	sceneData->setPointLight1Position(playerPos.x, playerPos.y + 2.f, playerPos.z);
 
 	spotLight->setDiffuseColour(sceneData->lightData.diffuseColour[0], sceneData->lightData.diffuseColour[1], sceneData->lightData.diffuseColour[2], sceneData->lightData.diffuseColour[3]);
 	spotLight->setDirection(sceneData->shadowLightsData.lightDirections[0][0], sceneData->shadowLightsData.lightDirections[0][1], sceneData->shadowLightsData.lightDirections[0][2]);
@@ -70,6 +76,62 @@ bool App1::render() {
 
 	getShadowDepthMap(worldMatrix, viewMatrix, projectionMatrix, identity);
 	finalRender(worldMatrix, viewMatrix, projectionMatrix, identity);
+
+
+	float dt = timer->getTime();
+	if (dt < 1e-6f) dt = 0.016f;
+
+	if (currentMode == AppMode::FlyCam) camera->update();
+	else if (currentMode == AppMode::Play) player->update(dt, input, terrainShader);
+
+	// --- compute velocity ---
+	XMFLOAT3 curPos = camera->getPosition();
+	XMFLOAT3 vel;
+	vel.x = (curPos.x - m_lastCamPos.x) / dt;
+	vel.y = (curPos.y - m_lastCamPos.y) / dt;
+	vel.z = (curPos.z - m_lastCamPos.z) / dt;
+	m_camVelocity = XMLoadFloat3(&vel);
+
+	// --- collision with terrain (sliding) ---
+	float terrainY = terrainShader->getHeight(curPos.x, curPos.z);
+	float minY = terrainY + m_camEyeHeight;
+
+	if (curPos.y < minY) {
+		// clamp above surface
+		curPos.y = minY;
+
+		// compute sliding: remove into-terrain component
+		XMFLOAT3 normal = terrainShader->getNormal(curPos.x, curPos.z);
+		XMVECTOR N = XMLoadFloat3(&normal);
+		XMVECTOR proj = XMVectorScale(N, XMVectorGetX(XMVector3Dot(m_camVelocity, N)));
+		XMVECTOR slideVel = XMVectorSubtract(m_camVelocity, proj);
+
+		// reset position based on slide
+		XMFLOAT3 sv;
+		XMStoreFloat3(&sv, slideVel);
+		curPos.x = m_lastCamPos.x + sv.x * dt;
+		curPos.z = m_lastCamPos.z + sv.z * dt;
+
+		camera->setPosition(curPos.x, curPos.y, curPos.z);
+		m_camVelocity = slideVel;
+	}
+
+	m_lastCamPos = curPos;
+
+	if (currentMode == AppMode::Play)
+	{
+		player->update(dt, input, terrainShader);
+		player->handleMouseLook(input, dt, this->wnd, this->sceneWidth, this->sceneHeight);
+
+		// Set camera position and rotation based on player
+		XMFLOAT3 camPos = player->getCameraPosition();
+
+		camera->setPosition(camPos.x, camPos.y, camPos.z);
+		camera->setRotation(player->getRotation().x, player->getRotation().y, 0.0f);
+		camera->update();
+	}
+
+
 
 	gui();
 
@@ -141,16 +203,14 @@ void App1::finalRender(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, 
 	}
 	else if (!sceneData->tessMesh)
 	{
-
+		// Post-processing effect: Bloom on stars texture along with Gaussian blur
+		applyBloom(worldMatrix, identityMatrix, projectionMatrix);
 
 		renderDome(worldMatrix, viewMatrix, projectionMatrix);
 		renderTerrain(worldMatrix, viewMatrix, projectionMatrix);
 		renderFirefly(worldMatrix, viewMatrix, projectionMatrix);
-		renderWater(worldMatrix, viewMatrix, projectionMatrix);
+		//renderWater(worldMatrix, viewMatrix, projectionMatrix);
 		renderMoon(worldMatrix, viewMatrix, projectionMatrix);
-
-		// Post-processing effect: Bloom on stars texture along with Gaussian blur
-		applyBloom(worldMatrix, identityMatrix, projectionMatrix);
 	}
 }
 
@@ -171,21 +231,100 @@ void App1::applyBloom(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, c
 
 void App1::renderDome(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix) {
 
-	XMMATRIX skyDomeWorldMatrix = XMMatrixScaling(200.f, 200.f, 200.f) * XMMatrixTranslation(50.f, 30.f, 50.f) * worldMatrix;
+	XMMATRIX skyDomeWorldMatrix = XMMatrixScaling(700.f, 200.f, 700.f) * XMMatrixTranslation(50.f, 30.f, 50.f) * worldMatrix;
 
 	circleDome->sendData(renderer->getDeviceContext());
 	domeShader->setShaderParameters(renderer->getDeviceContext(), skyDomeWorldMatrix, viewMatrix, projectionMatrix, renderBloom->getShaderResourceView(), sceneData);
 	domeShader->render(renderer->getDeviceContext(), circleDome->getIndexCount());
 }
 
-void App1::renderTerrain(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix) {
 
-	// GUI conditional statement - Toggle shadows
-	// Primitive Tolopogy is 3 control points patchlist (tri) to maintain uniform tessellation
-	topTerrain->sendData(renderer->getDeviceContext(), D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
-	terrainShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, viewMatrix, projectionMatrix, textureMgr->getTexture(L"terrain_heightmap"), textureMgr->getTexture(L"colour_1_height"), textureMgr->getTexture(L"colour_1"), textureMgr->getTexture(L"colour_2"), sceneData->shadowLightsData.enableSpotShadow ? shadowMap[0]->getDepthMapSRV() : nullptr, sceneData->shadowLightsData.enableDirShadow ? shadowMap[1]->getDepthMapSRV() : nullptr, camera, spotLight, directionalLight, sceneData);
-	terrainShader->render(renderer->getDeviceContext(), topTerrain->getIndexCount());
+void App1::generateIslands(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix) {
+
+	const float floorSize = 50.0f;
+
+	for (const auto& island : voronoiIslands->GetIslands()) {
+		if (!island.initialized) continue;
+
+		XMMATRIX islandWorld = XMMatrixScaling(floorSize, 1.0f, floorSize) *
+			XMMatrixRotationY(island.rotationY) *
+			XMMatrixTranslation(island.position.x, island.position.y, island.position.z);
+
+		topTerrain->sendData(renderer->getDeviceContext(), D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
+		terrainShader->setShaderParameters(renderer->getDeviceContext(), islandWorld, viewMatrix, projectionMatrix,
+			textureMgr->getTexture(L"terrain_heightmapCUT"),
+			textureMgr->getTexture(L"colour_1_heightCUT"),
+			textureMgr->getTexture(L"colour_1"),
+			textureMgr->getTexture(L"colour_2"),
+			sceneData->shadowLightsData.enableSpotShadow ? shadowMap[0]->getDepthMapSRV() : nullptr,
+			sceneData->shadowLightsData.enableDirShadow ? shadowMap[1]->getDepthMapSRV() : nullptr,
+			camera, spotLight, directionalLight, sceneData);
+		terrainShader->render(renderer->getDeviceContext(), topTerrain->getIndexCount());
+	}
 }
+
+void App1::generateBridges(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix) {
+	const float bridgeWidth = 2.0f;
+	const float bridgeHeight = 0.5f;
+	const float halfIslandSize = 25.0f;
+
+	for (const auto& bridge : voronoiIslands->GetBridges()) {
+		const auto& a = voronoiIslands->GetIslands()[bridge.islandA];
+		const auto& b = voronoiIslands->GetIslands()[bridge.islandB];
+
+		XMVECTOR posA = XMLoadFloat3(&a.position);
+		XMVECTOR posB = XMLoadFloat3(&b.position);
+		XMVECTOR dir = XMVector3Normalize(posB - posA);
+		float exitAngle = atan2(XMVectorGetZ(dir), XMVectorGetX(dir));
+		XMFLOAT3 exitPointA = a.position;
+		XMFLOAT3 entryPointB = b.position;
+
+		if (fabs(XMVectorGetX(dir)) > fabs(XMVectorGetZ(dir))) {
+			exitPointA.x += (XMVectorGetX(dir) > 0 ? halfIslandSize : -halfIslandSize);
+			exitPointA.z += tan(exitAngle) * halfIslandSize;
+			entryPointB.x += (XMVectorGetX(dir) > 0 ? -halfIslandSize : halfIslandSize);
+			entryPointB.z += tan(exitAngle) * -halfIslandSize;
+		}
+		else {
+			exitPointA.z += (XMVectorGetZ(dir) > 0 ? halfIslandSize : -halfIslandSize);
+			exitPointA.x += 1.0f / tan(exitAngle) * halfIslandSize;
+			entryPointB.z += (XMVectorGetZ(dir) > 0 ? -halfIslandSize : halfIslandSize);
+			entryPointB.x += 1.0f / tan(exitAngle) * -halfIslandSize;
+		}
+
+		XMVECTOR bridgeStart = XMLoadFloat3(&exitPointA);
+		XMVECTOR bridgeEnd = XMLoadFloat3(&entryPointB);
+		XMVECTOR bridgeCenter = (bridgeStart + bridgeEnd) * 0.5f;
+		float bridgeLength = XMVectorGetX(XMVector3Length(bridgeEnd - bridgeStart));
+
+		XMMATRIX bridgeWorld = XMMatrixScaling(bridgeLength, bridgeHeight, bridgeWidth) *
+			XMMatrixRotationY(-atan2(XMVectorGetZ(dir), XMVectorGetX(dir))) *
+			XMMatrixTranslation(
+				XMVectorGetX(bridgeCenter),
+				bridgeHeight * 0.5f,
+				XMVectorGetZ(bridgeCenter)
+			);
+
+		topTerrain->sendData(renderer->getDeviceContext(), D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
+		terrainShader->setShaderParameters(renderer->getDeviceContext(), bridgeWorld, viewMatrix, projectionMatrix,
+			textureMgr->getTexture(L"bridge_texture"),
+			textureMgr->getTexture(L"colour_1_heightCUT"),
+			textureMgr->getTexture(L"colour_1"),
+			textureMgr->getTexture(L"colour_2"),
+			sceneData->shadowLightsData.enableSpotShadow ? shadowMap[0]->getDepthMapSRV() : nullptr,
+			sceneData->shadowLightsData.enableDirShadow ? shadowMap[1]->getDepthMapSRV() : nullptr,
+			camera, spotLight, directionalLight, sceneData);
+		terrainShader->render(renderer->getDeviceContext(), topTerrain->getIndexCount());
+	}
+}
+
+void App1::renderTerrain(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix) {
+	renderer->setCullOn(false);
+	generateIslands(worldMatrix, viewMatrix, projectionMatrix);
+	generateBridges(worldMatrix, viewMatrix, projectionMatrix);
+	renderer->setCullOn(true);
+}
+
 
 void App1::renderFirefly(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix) {
 	XMMATRIX fireflyWorldMatrix = XMMatrixTranslation(sceneData->fireflyData.objPos[0], sceneData->fireflyData.objPos[1], sceneData->fireflyData.objPos[2]) * worldMatrix;
@@ -243,6 +382,10 @@ void App1::gui()
 			camera->getPosition().x, camera->getPosition().y, camera->getPosition().z);
 		ImGui::Text("Camera Rotation: X = %.3f, Y = %.3f, Z = %.3f",
 			camera->getRotation().x, camera->getRotation().y, camera->getRotation().z);
+		ImGui::Text("Player Position: X = %.3f, Y = %.3f, Z = %.3f",
+			player->getPosition().x, player->getPosition().y, player->getPosition().z);
+		ImGui::Text("PL1 Position: X = %.3f, Y = %.3f, Z = %.3f",
+			pointLight1->getPosition().x, pointLight1->getPosition().y, pointLight1->getPosition().z);
 	}
 	if (ImGui::CollapsingHeader("Lighting Settings"))
 	{
@@ -315,10 +458,44 @@ void App1::gui()
 
 	ImGui::Separator();
 
-	if (ImGui::Button("Reset Entire View"))
-	{
-		sceneData->resetView();
+	ImGui::Text("Mode Switch");
+
+	if (ImGui::Button("Fly Camera Mode"))  currentMode = AppMode::FlyCam;
+	if (ImGui::Button("Play Mode"))  currentMode = AppMode::Play;
+
+	ImGui::Separator();
+
+	ImGui::Text("Voronoi Islands");
+	ImGui::SliderInt("Grid Size", &gridSize, islandSize, 500);
+	ImGui::SliderInt("Island Count", &islandCount, 1, 4);
+	ImGui::SliderFloat("Min Distance", &minIslandDistance, islandSize, 150.0f);
+
+	if (ImGui::Button("Regenerate Islands")) {
+		gridSize = max(gridSize, static_cast<int>(islandSize * 2));
+		voronoiIslands = make_unique<VoronoiIslands>(gridSize, islandCount);
+		voronoiIslands->GenerateIslands();
 	}
+
+	ImGui::Text("Island Count: %d", voronoiIslands->GetIslands().size());
+	for (int i = 0; i < voronoiIslands->GetIslands().size(); ++i) {
+		const auto& island = voronoiIslands->GetIslands()[i];
+		float rotationDegrees = XMConvertToDegrees(island.rotationY);
+
+		ImGui::Text("Island %d:", i + 1);
+		ImGui::BulletText("Position: (%.1f, %.1f)", island.position.x, island.position.z);
+		ImGui::BulletText("Rotation: %.2f rad (%.1f°)",
+			island.rotationY,
+			rotationDegrees);
+
+		// Optional: Add a separator between islands for better readability
+		if (i < voronoiIslands->GetIslands().size() - 1) {
+			ImGui::Separator();
+		}
+	}
+
+	ImGui::Separator();
+
+	if (ImGui::Button("Reset Entire View")) sceneData->resetView();
 
 	ImGui::Separator();
 
@@ -466,7 +643,6 @@ void App1::initComponents() {
 	pointLight1->generateOrthoMatrix((float)sceneWidth, (float)sceneHeight, 0.1f, 500);
 	pointLight2->generateOrthoMatrix((float)sceneWidth, (float)sceneHeight, 0.1f, 500);
 
-
 	/*****************************    Initialize individual components    ************************************/
 
 	// Circle Dome
@@ -475,15 +651,19 @@ void App1::initComponents() {
 	textureMgr->loadTexture(L"dome", L"res/sky/brandon-griggs-PcAxQ_BMjnk-unsplash.jpg"); // Griggs, Brandon (2024). Unsplash. Available at: https://unsplash.com/photos/a-black-background-with-a-small-amount-of-snow-PcAxQ_BMjnk (Accessed: November 17, 2024).
 
 	// Terrain
-	topTerrain = new PlaneMesh(renderer->getDevice(), renderer->getDeviceContext());
+	topTerrain = new CubeMesh(renderer->getDevice(), renderer->getDeviceContext());
 	terrainShader = new TerrainManipulation(renderer->getDevice(), hwnd);
 	textureMgr->loadTexture(L"terrain_heightmap", L"res/HeightMaps/11_2.jpg"); // © Mapzen, OpenStreetMap, and others. Unreal PNG Heightmap. Available at: https://manticorp.github.io/unrealheightmap/index.html (Accessed: November 12, 2024).
 	textureMgr->loadTexture(L"colour_1_height", L"res/snowdust/textures/snow_field_aerial_height_2k.png"); // Tuytel, Rob (2021). Poly Haven. Available at: https://polyhaven.com/a/snow_field_aerial (Accessed: November 27, 2024).
 	textureMgr->loadTexture(L"colour_1", L"res/snowdust/textures/snow_field_aerial_col_2k.jpg"); // Tuytel, Rob (2021). Poly Haven. Available at: https://polyhaven.com/a/snow_field_aerial (Accessed: November 27, 2024).
 	textureMgr->loadTexture(L"colour_2", L"res/snow2/snow.jpg"); // wirestock. Freepik. Available at: https://www.freepik.com/free-photo/closeup-texture-fresh-white-snow-surface_23836198.htm#fromView=search&page=1&position=1&uuid=89966487-bab0-4307-a96b-a316a9055e31 (Accessed: November 27, 2024).
 
+	// Voronoi Islands
+	voronoiIslands = make_unique<VoronoiIslands>(gridSize, islandCount); // 100x100 grid, 3 islands
+	voronoiIslands->GenerateIslands();
+
 	// Water
-	water = new PlaneMesh(renderer->getDevice(), renderer->getDeviceContext(), 98);
+	water = new PlaneMesh(renderer->getDevice(), renderer->getDeviceContext());
 	waterShader = new WaterShader(renderer->getDevice(), hwnd);
 	textureMgr->loadTexture(L"water", L"res/blue_water.jpg"); // RoStRecords. Envato. Available at: https://elements.envato.com/pool-with-blue-water-water-surface-texture-top-vie-SXS2RKD (Accessed: November 17, 2024).
 
@@ -509,6 +689,11 @@ void App1::initComponents() {
 	// Shadow Maps
 	shadowMap[0] = new ShadowMap(renderer->getDevice(), shadowmapWidth, shadowmapHeight);
 	shadowMap[1] = new ShadowMap(renderer->getDevice(), shadowmapWidth, shadowmapHeight);
+
+	// Player
+	player = new Player();
+	player->setPosition(17.f, 13.f, -9.f);
+
 }
 
 /*****************************    Cleanup    ************************************/
@@ -533,6 +718,7 @@ void App1::cleanup() {
 	if (terrainDepthShader) { delete terrainDepthShader; terrainDepthShader = nullptr; }
 	if (fireflyShader) { delete fireflyShader; fireflyShader = nullptr; }
 	if (sceneData) { delete sceneData; sceneData = nullptr; }
+	if (player) { delete player; player = nullptr; }
 
 	for (int i = 0; i < 2; ++i) {
 		if (shadowMap[i]) { delete shadowMap[i]; shadowMap[i] = nullptr; }

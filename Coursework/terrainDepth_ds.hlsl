@@ -71,10 +71,10 @@ OutputType main(ConstantOutputType input, float3 uvCoord : SV_DomainLocation, co
     float2 texCoords = uvCoord.x * patch[0].tex + uvCoord.y * patch[1].tex + uvCoord.z * patch[2].tex;
     
     // Adjust terrain hovering height
-    vertexPosition.y -= 5.5f;
+    //vertexPosition.y -= 5.5f;
     
     // Adjust heigh based on terrain and soil height maps
-    vertexPosition.y += GetTerrainHeight(texCoords) + GetSoilHeight(texCoords);
+    //vertexPosition.y += GetTerrainHeight(texCoords) + GetSoilHeight(texCoords);
     
     // World space transformation (to clip space)
     float4 worldPos = mul(float4(vertexPosition, 1.0f), worldMatrix);

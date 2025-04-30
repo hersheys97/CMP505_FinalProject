@@ -14,6 +14,17 @@
 #include "WaterDepthShader.h"
 #include "TerrainDepthShader.h"
 #include "SceneData.h"
+#include "Player.h"
+#include "VoronoiIslands.h"
+
+enum class AppMode
+{
+	FlyCam,
+	Play
+};
+
+extern AppMode currentMode;
+
 
 class App1 : public BaseApplication
 {
@@ -43,6 +54,9 @@ private:
 	void renderMoon(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
 	void renderFirefly(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
 
+	void generateIslands(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
+	void generateBridges(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
+
 	// Cleanup method
 	void cleanup();
 
@@ -67,7 +81,7 @@ private:
 	WaterShader* waterShader;
 
 	// Terrain
-	PlaneMesh* topTerrain;
+	CubeMesh* topTerrain;
 	TerrainManipulation* terrainShader;
 
 	// Moon
@@ -83,6 +97,19 @@ private:
 	Light* directionalLight;
 	Light* pointLight1;
 	Light* pointLight2;
+
+	// Player
+	Player* player;
+	XMFLOAT3 m_lastCamPos = { 0.f,0.f,0.f };
+	XMVECTOR m_camVelocity = DirectX::XMVectorZero();
+	float m_camEyeHeight = 1.8f;
+
+	// Voronoi Islands
+	unique_ptr<VoronoiIslands> voronoiIslands;
+	float islandSize = 50.0f; // ISLAND_SIZE
+	int islandCount = 2;
+	float minIslandDistance = 30.0f;
+	int gridSize = 200;
 
 	// Screen dimensions
 	float SCREEN_WIDTH = 0.f;

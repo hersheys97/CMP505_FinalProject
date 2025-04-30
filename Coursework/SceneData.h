@@ -129,6 +129,13 @@ public:
 		// Reset firefly data
 		fireflyData.objPos[0] = 58.881f; fireflyData.objPos[1] = 8.507f; fireflyData.objPos[2] = 68.2f;
 	}
+
+	// Set the point light which will follow the player
+	void setPointLight1Position(float x, float y, float z) {
+		lightData.pointLight_pos1[0] = x;
+		lightData.pointLight_pos1[1] = y;
+		lightData.pointLight_pos1[2] = z;
+	}
 };
 
 // Pointer to SceneData
