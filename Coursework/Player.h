@@ -14,33 +14,18 @@ public:
 	void setPosition(float x, float y, float z);
 	void handleMouseLook(Input* input, float deltaTime, HWND hwnd, int winW, int winH);
 
-	// Add camera position calculation
 	XMFLOAT3 getCameraPosition() const {
-		return XMFLOAT3(
-			position.x,
-			position.y + camEyeHeight, // Camera at eye level
-			position.z
-		);
+		return XMFLOAT3(position.x, position.y + camEyeHeight, position.z);
 	}
 
-	// Add camera target calculation
 	XMFLOAT3 getCameraTarget() const {
-		// Calculate direction based on rotation
 		float yawRad = XMConvertToRadians(rotation.y);
 		float pitchRad = XMConvertToRadians(rotation.x);
-
-		// Calculate forward vector
 		float forwardX = sinf(yawRad) * cosf(pitchRad);
 		float forwardY = sinf(pitchRad);
 		float forwardZ = cosf(yawRad) * cosf(pitchRad);
-
-		return XMFLOAT3(
-			position.x + forwardX,
-			position.y + camEyeHeight + forwardY,
-			position.z + forwardZ
-		);
+		return XMFLOAT3(position.x + forwardX, position.y + camEyeHeight + forwardY, position.z + forwardZ);
 	}
-
 
 private:
 	XMFLOAT3 position;
@@ -51,5 +36,4 @@ private:
 	float jumpForce;
 	float mouseSensitivity;
 	bool isJumping;
-
 };

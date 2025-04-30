@@ -13,7 +13,7 @@ A simple sinusoidal terrain (no external libs) and hooked up smooth collision-sl
 #pragma once
 
 #include "DXF.h"
-#include "VoronoiIslands.h"
+#include "VoronoiIslands.h"	
 
 using namespace std;
 using namespace DirectX;
@@ -71,6 +71,8 @@ private:
 		XMFLOAT4 directionalColour;
 	};
 
+	unique_ptr<VoronoiIslands> voronoiIslands;
+
 	ID3D11Buffer* matrixBuffer;
 	ID3D11Buffer* lightBuffer;
 	ID3D11Buffer* cameraBuffer;
@@ -83,14 +85,17 @@ private:
 	void initShader(const wchar_t* cs, const wchar_t* ps);
 	void initShader(const wchar_t* vsFilename, const wchar_t* hsFilename, const wchar_t* dsFilename, const wchar_t* psFilename);
 
+	const vector<VoronoiIslands::Island>* m_islands = nullptr;
+	float m_regionSize = 0.0f;
+
 	static constexpr float HEIGHT_AMPLITUDE = 1.0f;
 	static constexpr float HEIGHT_FREQ = 0.1f;
 	static constexpr float NORMAL_DELTA = 0.1f;
 
-	const float TERRAIN_MIN_X = -10.f;
-	const float TERRAIN_MAX_X = 10.f;
-	const float TERRAIN_MIN_Z = -10.f;
-	const float TERRAIN_MAX_Z = 10.f;
+	const float TERRAIN_MIN_X = -50.f;
+	const float TERRAIN_MAX_X = 50.f;
+	const float TERRAIN_MIN_Z = -50.f;
+	const float TERRAIN_MAX_Z = 50.f;
 
 
 public:
@@ -101,6 +106,9 @@ public:
 	float getHeight(float x, float z) const;
 	bool isOnTerrain(float x, float z) const;
 	XMFLOAT3 getNormal(float x, float z) const;
+
+	void setIslands(const vector<VoronoiIslands::Island>& islands, float regionSize);
+
 
 	void setShaderParameters(ID3D11DeviceContext* deviceContext, const XMMATRIX& world, const XMMATRIX& view, const XMMATRIX& projection, ID3D11ShaderResourceView* terrain, ID3D11ShaderResourceView* texture_height, ID3D11ShaderResourceView* texture_colour, ID3D11ShaderResourceView* texture_colour1, ID3D11ShaderResourceView* depth1, ID3D11ShaderResourceView* depth2, Camera* camera, Light* light, Light* directionalLight, SceneData* sceneData);
 };

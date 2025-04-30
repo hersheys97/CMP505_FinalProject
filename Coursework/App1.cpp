@@ -1,4 +1,4 @@
-#include "App1.h"
+ï»¿#include "App1.h"
 #include <DirectXMath.h>
 using namespace DirectX;
 
@@ -81,9 +81,6 @@ bool App1::render() {
 	float dt = timer->getTime();
 	if (dt < 1e-6f) dt = 0.016f;
 
-	if (currentMode == AppMode::FlyCam) camera->update();
-	else if (currentMode == AppMode::Play) player->update(dt, input, terrainShader);
-
 	// --- compute velocity ---
 	XMFLOAT3 curPos = camera->getPosition();
 	XMFLOAT3 vel;
@@ -130,6 +127,7 @@ bool App1::render() {
 		camera->setRotation(player->getRotation().x, player->getRotation().y, 0.0f);
 		camera->update();
 	}
+	else camera->update();
 
 
 
@@ -468,31 +466,14 @@ void App1::gui()
 	ImGui::Separator();
 
 	ImGui::Text("Voronoi Islands");
-	ImGui::SliderInt("Grid Size", &gridSize, islandSize, 500);
-	ImGui::SliderInt("Island Count", &islandCount, 1, 4);
-	ImGui::SliderFloat("Min Distance", &minIslandDistance, islandSize, 150.0f);
+	ImGui::SliderInt("Grid Size", &gridSize, islandSize, 700);
+	ImGui::SliderInt("Island Count", &islandCount, 1, 6);
 
 	if (ImGui::Button("Regenerate Islands")) {
 		gridSize = max(gridSize, static_cast<int>(islandSize * 2));
 		voronoiIslands = make_unique<VoronoiIslands>(gridSize, islandCount);
 		voronoiIslands->GenerateIslands();
-	}
-
-	ImGui::Text("Island Count: %d", voronoiIslands->GetIslands().size());
-	for (int i = 0; i < voronoiIslands->GetIslands().size(); ++i) {
-		const auto& island = voronoiIslands->GetIslands()[i];
-		float rotationDegrees = XMConvertToDegrees(island.rotationY);
-
-		ImGui::Text("Island %d:", i + 1);
-		ImGui::BulletText("Position: (%.1f, %.1f)", island.position.x, island.position.z);
-		ImGui::BulletText("Rotation: %.2f rad (%.1f°)",
-			island.rotationY,
-			rotationDegrees);
-
-		// Optional: Add a separator between islands for better readability
-		if (i < voronoiIslands->GetIslands().size() - 1) {
-			ImGui::Separator();
-		}
+		terrainShader->setIslands(voronoiIslands->GetIslands(), islandSize);
 	}
 
 	ImGui::Separator();
@@ -655,7 +636,7 @@ void App1::initComponents() {
 	// Terrain
 	topTerrain = new CubeMesh(renderer->getDevice(), renderer->getDeviceContext());
 	terrainShader = new TerrainManipulation(renderer->getDevice(), hwnd);
-	textureMgr->loadTexture(L"terrain_heightmap", L"res/HeightMaps/11_2.jpg"); // © Mapzen, OpenStreetMap, and others. Unreal PNG Heightmap. Available at: https://manticorp.github.io/unrealheightmap/index.html (Accessed: November 12, 2024).
+	textureMgr->loadTexture(L"terrain_heightmap", L"res/HeightMaps/11_2.jpg"); // Â© Mapzen, OpenStreetMap, and others. Unreal PNG Heightmap. Available at: https://manticorp.github.io/unrealheightmap/index.html (Accessed: November 12, 2024).
 	textureMgr->loadTexture(L"colour_1_height", L"res/snowdust/textures/snow_field_aerial_height_2k.png"); // Tuytel, Rob (2021). Poly Haven. Available at: https://polyhaven.com/a/snow_field_aerial (Accessed: November 27, 2024).
 	textureMgr->loadTexture(L"colour_1", L"res/snowdust/textures/snow_field_aerial_col_2k.jpg"); // Tuytel, Rob (2021). Poly Haven. Available at: https://polyhaven.com/a/snow_field_aerial (Accessed: November 27, 2024).
 	textureMgr->loadTexture(L"colour_2", L"res/snow2/snow.jpg"); // wirestock. Freepik. Available at: https://www.freepik.com/free-photo/closeup-texture-fresh-white-snow-surface_23836198.htm#fromView=search&page=1&position=1&uuid=89966487-bab0-4307-a96b-a316a9055e31 (Accessed: November 27, 2024).
@@ -663,6 +644,7 @@ void App1::initComponents() {
 	// Voronoi Islands
 	voronoiIslands = make_unique<VoronoiIslands>(gridSize, islandCount);
 	voronoiIslands->GenerateIslands();
+	terrainShader->setIslands(voronoiIslands->GetIslands(), islandSize);
 
 	// Water
 	water = new PlaneMesh(renderer->getDevice(), renderer->getDeviceContext());
@@ -676,7 +658,7 @@ void App1::initComponents() {
 
 	// Firefly
 	fireflyShader = new FireflyShader(renderer->getDevice(), hwnd);
-	firefly = new AModel(renderer->getDevice(), "res/Sphere.obj"); // Falconer, Ruth (2024) ‘DX Framework for CMP301’ [My Learning Space]. Abertay University. 25 September.
+	firefly = new AModel(renderer->getDevice(), "res/Sphere.obj"); // Falconer, Ruth (2024) â€˜DX Framework for CMP301â€™ [My Learning Space]. Abertay University. 25 September.
 	textureMgr->loadTexture(L"firefly", L"res/yellow.jpg"); // Dent, Jason (2020) Unsplash. Available at: https://unsplash.com/photos/yellow-and-white-color-illustration-S53ekmu8KkE (Accessed: December 8, 2024).
 
 	// Bloom
@@ -694,7 +676,7 @@ void App1::initComponents() {
 
 	// Player
 	player = new Player();
-	player->setPosition(17.f, 13.f, -9.f);
+	player->setPosition(58.881f, 8.507f, 68.2f);
 
 }
 

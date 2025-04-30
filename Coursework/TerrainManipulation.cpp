@@ -158,32 +158,50 @@ void TerrainManipulation::initShader(const wchar_t* vsFilename, const wchar_t* h
 }
 
 
-float TerrainManipulation::getHeight(float x, float z) const {
-
-	// simple sinusoidal hills, amplitude and freq can be tuned
-	return sin(x * HEIGHT_FREQ) * cos(z * HEIGHT_FREQ) * HEIGHT_AMPLITUDE;
+void TerrainManipulation::setIslands(const vector<VoronoiIslands::Island>& islands, float regionSize)
+{
+	// store pointer to the islands array (lifetime must exceed this object)
+	m_islands = &islands;
+	// we'll test half-size around each center
+	m_regionSize = regionSize;
 }
 
-bool TerrainManipulation::isOnTerrain(float x, float z) const {
-	return (x >= TERRAIN_MIN_X && x <= TERRAIN_MAX_X &&
-		z >= TERRAIN_MIN_Z && z <= TERRAIN_MAX_Z);
+bool TerrainManipulation::isOnTerrain(float x, float z) const
+{
+	if (!m_islands) return false;
+
+	constexpr float meshHalf = 25.0f;    // half of your 50×50 quad
+	float allowed = (m_regionSize * 0.5f) + meshHalf;
+
+	for (const auto& isl : *m_islands)
+	{
+		float dx = x - isl.position.x;
+		float dz = z - isl.position.z;
+		if (fabsf(dx) <= allowed && fabsf(dz) <= allowed)
+			return true;
+	}
+	return false;
 }
 
-XMFLOAT3 TerrainManipulation::getNormal(float x, float z) const {
-	// central difference to approximate gradient
+// height and normal remain the same:
+float TerrainManipulation::getHeight(float x, float z) const
+{
+	return sinf(x * HEIGHT_FREQ) * cosf(z * HEIGHT_FREQ) * HEIGHT_AMPLITUDE;
+}
+
+XMFLOAT3 TerrainManipulation::getNormal(float x, float z) const
+{
 	float hL = getHeight(x - NORMAL_DELTA, z);
 	float hR = getHeight(x + NORMAL_DELTA, z);
 	float hD = getHeight(x, z - NORMAL_DELTA);
 	float hU = getHeight(x, z + NORMAL_DELTA);
 
-	XMFLOAT3 n;
-	n.x = hL - hR;
-	n.y = 2 * NORMAL_DELTA;
-	n.z = hD - hU;
-	XMVECTOR vn = XMVector3Normalize(XMLoadFloat3(&n));
-	XMStoreFloat3(&n, vn);
+	XMFLOAT3 n{ hL - hR, 2 * NORMAL_DELTA, hD - hU };
+	XMVECTOR norm = XMVector3Normalize(XMLoadFloat3(&n));
+	XMStoreFloat3(&n, norm);
 	return n;
 }
+
 
 
 void TerrainManipulation::setShaderParameters(ID3D11DeviceContext* deviceContext, const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, ID3D11ShaderResourceView* terrain, ID3D11ShaderResourceView* texture_height, ID3D11ShaderResourceView* texture_colour, ID3D11ShaderResourceView* texture_colour1, ID3D11ShaderResourceView* depth1, ID3D11ShaderResourceView* depth2, Camera* camera, Light* light, Light* directionalLight, SceneData* sceneData)
