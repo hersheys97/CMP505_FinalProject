@@ -238,6 +238,8 @@ void App1::renderDome(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, c
 	domeShader->render(renderer->getDeviceContext(), circleDome->getIndexCount());
 }
 
+// Procedural Generation of Voronoi Islands
+// Based on the number of islands, that many Voronoi regions are created in voronoiIslands.GenerateVoronoiRegions(). Then, inside each Voronoi region, an island is spawn with a random position and rotation. After that, each island connects to one other island with a bridge. The islands have collision detection with the Player (Play Mode) or the Camera (Fly Mode).
 
 void App1::generateIslands(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix) {
 
@@ -659,7 +661,7 @@ void App1::initComponents() {
 	textureMgr->loadTexture(L"colour_2", L"res/snow2/snow.jpg"); // wirestock. Freepik. Available at: https://www.freepik.com/free-photo/closeup-texture-fresh-white-snow-surface_23836198.htm#fromView=search&page=1&position=1&uuid=89966487-bab0-4307-a96b-a316a9055e31 (Accessed: November 27, 2024).
 
 	// Voronoi Islands
-	voronoiIslands = make_unique<VoronoiIslands>(gridSize, islandCount); // 100x100 grid, 3 islands
+	voronoiIslands = make_unique<VoronoiIslands>(gridSize, islandCount);
 	voronoiIslands->GenerateIslands();
 
 	// Water

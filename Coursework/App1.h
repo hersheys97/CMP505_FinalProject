@@ -109,7 +109,7 @@ private:
 	float islandSize = 50.0f; // ISLAND_SIZE
 	int islandCount = 2;
 	float minIslandDistance = 30.0f;
-	int gridSize = 200;
+	int gridSize = 700;
 
 	// Screen dimensions
 	float SCREEN_WIDTH = 0.f;

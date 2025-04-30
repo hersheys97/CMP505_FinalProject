@@ -4,7 +4,6 @@
 #include <DirectXMath.h>
 #include <random>
 #include <memory>
-#include <queue>
 
 using namespace std;
 using namespace DirectX;
@@ -22,17 +21,18 @@ public:
 		size_t islandB;
 	};
 
-	VoronoiIslands(int gridSize = 300, int islandCount = 2);
+	VoronoiIslands(int cellSize, int islandCount);
 	void GenerateIslands();
-	void SetGridSize(int size) { gridSize = max(size, 100); }
 	const vector<Island>& GetIslands() const { return islands; }
 	const vector<Bridge>& GetBridges() const { return bridges; }
 
 private:
+	void GenerateVoronoiRegions();
 	void GenerateMinimumSpanningTree();
 
 	vector<Island> islands;
 	vector<Bridge> bridges;
+	vector<XMFLOAT3> voronoiRegions;
 	int gridSize;
 	unique_ptr<mt19937> gen;
 };
