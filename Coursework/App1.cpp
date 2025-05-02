@@ -41,7 +41,6 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int screenWidth, int screenHeigh
 	SCREEN_WIDTH = screenWidth;
 	SCREEN_HEIGHT = screenHeight;
 
-	initAudio();
 	initComponents();
 }
 
@@ -96,17 +95,7 @@ float App1::randomFloat(float min, float max) {
 /*****************************    Renders    ************************************/
 
 void App1::renderAudio() {
-	// Start playing if not already playing
-	if (bgm1Instance) {
-		FMOD_STUDIO_PLAYBACK_STATE state;
-		bgm1Instance->getPlaybackState(&state);
-		if (state != FMOD_STUDIO_PLAYBACK_PLAYING) {
-			bgm1Instance->start();
-		}
-	}
-
-	// Update FMOD system
-	studioSystem->update();
+	audioSystem.update(timer->getTime());
 }
 
 void App1::renderPlayer() {
@@ -143,30 +132,30 @@ void App1::renderPlayer() {
 
 	m_lastCamPos = curPos;
 
-	// Moved outside to class member initialization
-	// static bool firstTimeInPlayMode = true; 
-
 	if (currentMode == AppMode::Play) {
+
+		XMFLOAT3 islandPos = voronoiIslands->GetRandomIslandPosition();
+		float terrainHeight = terrainShader->getHeight(islandPos.x, islandPos.z);
+		XMFLOAT3 camPos = player->getCameraPosition();
+
 		if (firstTimeInPlayMode) {
-			XMFLOAT3 islandPos = voronoiIslands->GetRandomIslandPosition();
-			float terrainHeight = terrainShader->getHeight(islandPos.x, islandPos.z);
-
-			// Set both player and camera positions together
 			player->setPosition(islandPos.x, terrainHeight + 2.0f, islandPos.z);
-
-			// Sync camera with player
-			XMFLOAT3 camPos = player->getCameraPosition();
-			camera->setPosition(camPos.x, camPos.y, camPos.z);
+			camera->setPosition(camPos.x, camPos.y + 5.f, camPos.z);
 			camera->setRotation(0.0f, 0.0f, 0.0f);
-
 			firstTimeInPlayMode = false;
+			audioSystem.playBGM1();
+			startedBGM = true;
+		}
+		if (player->getPosition().y < -50.0f) {
+			player->setPosition(islandPos.x, terrainHeight + 2.0f, islandPos.z);
+			camera->setPosition(camPos.x, camPos.y + 5.f, camPos.z);
+			camera->setRotation(0.0f, 0.0f, 0.0f);
 		}
 
 		player->update(dt, input, terrainShader);
 		player->handleMouseLook(input, dt, this->wnd, this->sceneWidth, this->sceneHeight);
 
 		// Update camera from player
-		XMFLOAT3 camPos = player->getCameraPosition();
 		camera->setPosition(camPos.x, camPos.y, camPos.z);
 		camera->setRotation(player->getRotation().x, player->getRotation().y, 0.0f);
 		camera->update();
@@ -175,11 +164,17 @@ void App1::renderPlayer() {
 			sonarActive = true;
 			sceneData->tessMesh = true;
 			sonarTime = 0.0f;
-			sonarOrigin = player->getPosition(); // Use player position directly
+			sonarOrigin = player->getPosition();
+			audioSystem.playOneShot("event:/EchoPulse");
+			audioSystem.dimBGM(audioSystem.ECHO_EFFECT_DURATION);
 		}
 	}
 	else {
 		camera->update();
+		if (startedBGM) {
+			audioSystem.stopBGM1();
+			startedBGM = false;
+		}
 	}
 
 	if (sonarActive) {
@@ -202,20 +197,12 @@ void App1::renderGhost(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, 
 			currentIslandIndex = rand() % islands.size();
 			const auto& island = islands[currentIslandIndex];
 
-			fireflyPosition = XMFLOAT3{
-				island.position.x + (rand() % 10 - 5),
-				island.position.y + 3.f,
-				island.position.z + (rand() % 10 - 5)
-			};
-
-			fireflyVelocity = XMFLOAT3{
-				randomFloat(-1.f, 1.f) * 2.f,
-				0.f,
-				randomFloat(-1.f, 1.f) * 2.f
-			};
-
+			fireflyPosition = XMFLOAT3{ island.position.x + (rand() % 10 - 5),island.position.y + 3.f,island.position.z + (rand() % 10 - 5) };
+			fireflyVelocity = XMFLOAT3{ randomFloat(-1.f, 1.f) * 2.f,0.f,randomFloat(-1.f, 1.f) * 2.f };
 			fireflyLifetime = fireflyMaxLifetime;
 			fireflyActive = true;
+
+			audioSystem.playFireflyWhisper(fireflyPosition);
 
 			// Reset direction change timing
 			directionChangeTimer = 0.0f;
@@ -251,7 +238,6 @@ void App1::renderGhost(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, 
 			nextDirectionChangeTime = randomFloat(1.0f, 2.0f);
 		}
 
-
 		// Update position
 		fireflyPosition.x += fireflyVelocity.x * deltaTime;
 		fireflyPosition.z += fireflyVelocity.z * deltaTime;
@@ -259,33 +245,21 @@ void App1::renderGhost(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, 
 		// Randomly change direction every few seconds
 		directionChangeTimer += deltaTime;
 		if (directionChangeTimer >= nextDirectionChangeTime) {
-			fireflyVelocity = XMFLOAT3{
-				randomFloat(5.f, 7.f) * 2.f,
-				0.f,
-				randomFloat(5.f, 7.f) * 2.f
-			};
-
+			fireflyVelocity = XMFLOAT3{ randomFloat(5.f, 7.f) * 2.f,0.f,randomFloat(5.f, 7.f) * 2.f };
 			directionChangeTimer = 0.0f;
-			nextDirectionChangeTime = randomFloat(1.0f, 2.0f); // Next interval
+			nextDirectionChangeTime = randomFloat(1.0f, 2.0f);
 		}
+
+		audioSystem.updateFireflyPosition(fireflyPosition);
 	}
 
+	if (!fireflyActive && audioSystem.isWhisperPlaying()) audioSystem.stopFireflyWhisper();
 
 	if (fireflyActive) {
 		XMMATRIX fireflyWorldMatrix = XMMatrixTranslation(fireflyPosition.x, fireflyPosition.y, fireflyPosition.z);
 
 		firefly->sendData(renderer->getDeviceContext());
-		fireflyShader->setShaderParameters(
-			renderer->getDeviceContext(),
-			fireflyWorldMatrix,
-			viewMatrix,
-			projectionMatrix,
-			textureMgr->getTexture(L"firefly"),
-			camera,
-			spotLight,
-			directionalLight,
-			sceneData
-		);
+		fireflyShader->setShaderParameters(renderer->getDeviceContext(), fireflyWorldMatrix, viewMatrix, projectionMatrix, textureMgr->getTexture(L"firefly"), camera, spotLight, directionalLight, sceneData);
 		fireflyShader->render(renderer->getDeviceContext(), firefly->getIndexCount());
 	}
 }
@@ -486,7 +460,7 @@ void App1::generateWalls(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix
 }
 
 void App1::generateBridges(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix) {
-	const float bridgeWidth = 3.0f;
+	const float bridgeWidth = 5.0f;
 	const float bridgeHeight = 0.5f;
 	const float halfRegionSize = 75.0f;
 
@@ -583,7 +557,6 @@ void App1::renderMoon(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, c
 	moonShader->setShaderParameters(renderer->getDeviceContext(), moonWorldMatrix, viewMatrix, projectionMatrix, textureMgr->getTexture(L"moon"), spotLight, sceneData);
 	moonShader->render(renderer->getDeviceContext(), moon->getIndexCount());
 }
-
 
 /*****************************    GUI    ************************************/
 
@@ -835,31 +808,6 @@ bool App1::frame()
 
 /*****************************    Initialize Resources    ************************************/
 
-void App1::initAudio() {
-	// FMOD - Audio
-	FMOD::Studio::System::create(&studioSystem);
-	studioSystem->initialize(64, FMOD_STUDIO_INIT_NORMAL, FMOD_INIT_NORMAL, nullptr);
-	const char* bankPaths[] = {
-		"../FMOD Project/CMP505_Audio/Build/Desktop/CMP505.bank",
-		"../FMOD Project/CMP505_Audio/Build/Desktop/CMP505.strings.bank"
-	};
-
-
-	// Load banks first
-	for (const char* path : bankPaths) {
-		FMOD::Studio::Bank* bank = nullptr;
-		studioSystem->loadBankFile(path, FMOD_STUDIO_LOAD_BANK_NORMAL, &bank);
-	}
-
-	// Wait for banks to load
-	studioSystem->flushCommands();
-
-	// Load BGM1 event
-	FMOD::Studio::EventDescription* bgm1Description = nullptr;
-	studioSystem->getEvent("event:/BGM1", &bgm1Description);
-	bgm1Description->createInstance(&bgm1Instance);
-}
-
 void App1::initComponents() {
 	// Camera setup
 	camera->setPosition(40.8f, 13.f, -11.8f);
@@ -869,7 +817,6 @@ void App1::initComponents() {
 	sceneData = new SceneData();
 
 	// Lights setup
-
 	spotLight = new Light();
 	directionalLight = new Light();
 	pointLight1 = new Light();
@@ -879,6 +826,12 @@ void App1::initComponents() {
 	directionalLight->generateOrthoMatrix((float)sceneWidth, (float)sceneHeight, 0.1f, 2000.f);
 	pointLight1->generateOrthoMatrix((float)sceneWidth, (float)sceneHeight, 0.1f, 500);
 	pointLight2->generateOrthoMatrix((float)sceneWidth, (float)sceneHeight, 0.1f, 500);
+
+	// Audio
+	if (!audioSystem.init()) {
+		// Handle initialization failure
+		MessageBox(hwnd, L"Failed to initialize audio system", L"Audio Error", MB_OK | MB_ICONERROR);
+	}
 
 	/*****************************    Initialize individual components    ************************************/
 

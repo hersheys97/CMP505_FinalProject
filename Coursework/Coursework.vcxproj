@@ -172,6 +172,7 @@
     <ClCompile Include="DomeShader.cpp" />
     <ClCompile Include="EchoPulse.cpp" />
     <ClCompile Include="FireflyShader.cpp" />
+    <ClCompile Include="FMODAudioSystem.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="MoonShader.cpp" />
     <ClCompile Include="Player.cpp" />
@@ -188,6 +189,7 @@
     <ClInclude Include="DomeShader.h" />
     <ClInclude Include="EchoPulse.h" />
     <ClInclude Include="FireflyShader.h" />
+    <ClInclude Include="FMODAudioSystem.h" />
     <ClInclude Include="MoonShader.h" />
     <ClInclude Include="Player.h" />
     <ClInclude Include="SceneData.h" />

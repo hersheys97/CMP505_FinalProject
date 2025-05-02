@@ -66,21 +66,30 @@ void Player::update(float deltaTime, Input* input, TerrainManipulation* terrain)
 
 	if (!isGrounded && !isGrounded2) {
 		velocity.y -= 15.8f * deltaTime;
-		velocity.x *= 0.95f;
-		velocity.z *= 0.95f;
+
+		// Allow control in air (weaker)
+		const float airControlFactor = 0.5f;
+		velocity.x += worldMove.x * speed * airControlFactor * deltaTime;
+		velocity.z += worldMove.z * speed * airControlFactor * deltaTime;
+
+		// Stronger air drag to reduce sliding
+		velocity.x *= 0.92f;
+		velocity.z *= 0.92f;
 	}
 	else {
 		if (velocity.y < 0.0f) {
 			velocity.y = 0.0f;
 			isJumping = false;
 		}
+
 		if (moveInput.x != 0.0f || moveInput.z != 0.0f) {
 			velocity.x = worldMove.x * speed;
 			velocity.z = worldMove.z * speed;
 		}
 		else {
-			velocity.x *= 0.8f;
-			velocity.z *= 0.8f;
+			// Ground friction
+			velocity.x *= 0.6f;
+			velocity.z *= 0.6f;
 		}
 	}
 
@@ -90,14 +99,8 @@ void Player::update(float deltaTime, Input* input, TerrainManipulation* terrain)
 		position.z + velocity.z * deltaTime
 	};
 
-	if (terrain->collidesWall(newPos.x, newPos.z)) {
-		// Handle the collision here, e.g., stop movement or adjust the position
-		// For now, we stop the movement if there's a collision
-		newPos = position;
-	}
-
 	setPosition(newPos.x, newPos.y, newPos.z);
-	if (position.y < -100.0f) resetPosition(terrain);
+	if (position.y < -50.0f) resetParams();
 }
 
 void Player::handleMouseLook(Input* input, float deltaTime, HWND hwnd, int winW, int winH) {
@@ -119,8 +122,7 @@ void Player::handleMouseLook(Input* input, float deltaTime, HWND hwnd, int winW,
 	SetCursorPos(warp.x, warp.y);
 }
 
-void Player::resetPosition(TerrainManipulation* terrain) {
-	setPosition(58.881f, terrain->getHeight(58.881f, -68.2f) + camEyeHeight + 2.0f, 68.2f);
+void Player::resetParams() {
 	velocity = { 0.f, 0.f, 0.f };
 	rotation = { 0.f, 0.f, 0.f };
 	isJumping = false;

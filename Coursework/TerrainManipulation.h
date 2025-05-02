@@ -98,16 +98,16 @@ private:
 
 	const vector<VoronoiIslands::Wall>* m_walls = nullptr;
 	vector<pair<XMFLOAT3, XMFLOAT3>> m_bridges; // start , end
-	float m_bridgeWidth = 2.0f;
+	float m_bridgeWidth = 5.0f;
 
 	static constexpr float HEIGHT_AMPLITUDE = 1.0f;
 	static constexpr float HEIGHT_FREQ = 0.1f;
 	static constexpr float NORMAL_DELTA = 0.1f;
 
-	const float TERRAIN_MIN_X = -50.f;
+	/*const float TERRAIN_MIN_X = -50.f;
 	const float TERRAIN_MAX_X = 50.f;
 	const float TERRAIN_MIN_Z = -50.f;
-	const float TERRAIN_MAX_Z = 50.f;
+	const float TERRAIN_MAX_Z = 50.f;*/
 
 
 public:

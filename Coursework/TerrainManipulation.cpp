@@ -257,9 +257,6 @@ XMFLOAT3 TerrainManipulation::getNormal(float x, float z) const
 }
 
 
-
-
-
 void TerrainManipulation::setShaderParameters(ID3D11DeviceContext* deviceContext, const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, bool sonarActive, XMFLOAT3 sonarOrigin, float sonarRadius, ID3D11ShaderResourceView* terrain, ID3D11ShaderResourceView* texture_height, ID3D11ShaderResourceView* texture_colour, ID3D11ShaderResourceView* texture_colour1, ID3D11ShaderResourceView* depth1, ID3D11ShaderResourceView* depth2, Camera* camera, Light* light, Light* directionalLight, SceneData* sceneData)
 {
 	HRESULT result;

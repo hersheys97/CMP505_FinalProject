@@ -509,10 +509,12 @@ void D3D::setWireframeMode(bool b)
 	wireframeState = b;
 	if (wireframeState)
 	{
+		setCullOn(false);
 		deviceContext->RSSetState(rasterStateWF);
 	}
 	else
 	{
+		setCullOn(true);
 		deviceContext->RSSetState(rasterStateCFront);
 	}
 }

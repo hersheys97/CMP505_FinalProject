@@ -111,6 +111,9 @@
     <ClCompile Include="EchoPulse.cpp">
       <Filter>Source Files\RtT</Filter>
     </ClCompile>
+    <ClCompile Include="FMODAudioSystem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="App1.h">
@@ -154,6 +157,9 @@
     </ClInclude>
     <ClInclude Include="EchoPulse.h">
       <Filter>Header Files\RtT</Filter>
+    </ClInclude>
+    <ClInclude Include="FMODAudioSystem.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

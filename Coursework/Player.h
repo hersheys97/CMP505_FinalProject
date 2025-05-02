@@ -10,7 +10,7 @@ public:
 	XMFLOAT3 getRotation() const;
 
 	void update(float deltaTime, Input* input, TerrainManipulation* terrain);
-	void resetPosition(TerrainManipulation* terrain);
+	void resetParams();
 	void setPosition(float x, float y, float z);
 	void handleMouseLook(Input* input, float deltaTime, HWND hwnd, int winW, int winH);
 

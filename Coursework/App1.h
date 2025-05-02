@@ -17,12 +17,7 @@
 #include "SceneData.h"
 #include "Player.h"
 #include "VoronoiIslands.h"
-
-#include "fmod_studio.hpp"
-#include "fmod.hpp"
-#include "fmod_errors.h"
-#pragma comment(lib, "fmod_vc.lib") // Core FMOD library
-#pragma comment(lib, "fmodstudio_vc.lib") // FMOD Studio library
+#include "FMODAudioSystem.h"
 
 enum class AppMode { FlyCam, Play };
 
@@ -43,7 +38,6 @@ protected:
 
 private:
 	// Initialization method
-	void initAudio();
 	void initComponents();
 
 	float randomFloat(float min, float max);
@@ -117,7 +111,7 @@ private:
 	// Player
 	Player* player;
 	XMFLOAT3 m_lastCamPos = { 0.f,0.f,0.f };
-	XMVECTOR m_camVelocity = DirectX::XMVectorZero();
+	XMVECTOR m_camVelocity = XMVectorZero();
 	float m_camEyeHeight = 1.8f;
 	bool firstTimeInPlayMode = true;
 
@@ -129,8 +123,25 @@ private:
 	int gridSize = 700;
 
 	// FMOD
-	FMOD::Studio::System* studioSystem = nullptr;
+	FMODAudioSystem audioSystem;
+	bool startedBGM = false;
+
+	/*FMOD::Studio::System* studioSystem = nullptr;
+
+	FMOD::DSP* bgmLowpass = nullptr;
+	FMOD::ChannelGroup* bgmChannelGroup = nullptr;
+
 	FMOD::Studio::EventInstance* bgm1Instance = nullptr;
+	FMOD::Studio::EventInstance* heavyWhisperInstance = nullptr;
+	FMOD::Studio::EventInstance* girlWhisperInstance = nullptr;
+
+	bool bgmStarted = false;
+	bool bgmDimmed = false;
+	float bgmTargetVolume = 1.0f;
+	float bgmRestoreTimer = 0.0f;
+	const float echoEffectDuration = 3.0f;
+	bool ghostAudioPlaying = false;*/
+
 
 	// Echo Pulse
 	bool sonarActive = false;
