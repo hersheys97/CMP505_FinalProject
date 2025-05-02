@@ -80,25 +80,18 @@ void VoronoiIslands::GenerateIslands() {
 		float regionMaxZ = region.z + REGION_SIZE / 2.0f;
 
 		// Adjust position if the island extends beyond the Voronoi region
-		if (minX < regionMinX) {
-			islands[i].position.x += (regionMinX - minX);
-		}
-		if (maxX > regionMaxX) {
-			islands[i].position.x -= (maxX - regionMaxX);
-		}
-		if (minZ < regionMinZ) {
-			islands[i].position.z += (regionMinZ - minZ);
-		}
-		if (maxZ > regionMaxZ) {
-			islands[i].position.z -= (maxZ - regionMaxZ);
-		}
+		if (minX < regionMinX) islands[i].position.x += (regionMinX - minX);
+		if (maxX > regionMaxX)  islands[i].position.x -= (maxX - regionMaxX);
+		if (minZ < regionMinZ)  islands[i].position.z += (regionMinZ - minZ);
+		if (maxZ > regionMaxZ)  islands[i].position.z -= (maxZ - regionMaxZ);
 
 		islands[i].initialized = true;
+
+		GenerateWalls(islands[i]);
 	}
 
 	GenerateMinimumSpanningTree();
 }
-
 
 void VoronoiIslands::GenerateMinimumSpanningTree() {
 	bridges.clear();
@@ -134,5 +127,105 @@ void VoronoiIslands::GenerateMinimumSpanningTree() {
 
 	for (size_t i = 1; i < islands.size(); ++i) {
 		bridges.push_back(Bridge{ parent[i], i });
+
+		const XMFLOAT3& start = islands[parent[i]].position;
+		const XMFLOAT3& end = islands[i].position;
 	}
+}
+
+void VoronoiIslands::GenerateWalls(Island& island) {
+	const float ISLAND_SIZE = 50.f;
+	const int MIN_WALLS = 2;
+	const int MAX_WALLS = 5;
+	const float WALL_HEIGHT = 10.f;
+	const float MIN_WALL_LENGTH = 5.f;
+	const float MAX_WALL_LENGTH = 20.f;
+	const float WALL_SAFE_MARGIN = 5.f; // Minimum distance between walls
+
+	uniform_int_distribution<int> wallCountDist(MIN_WALLS, MAX_WALLS);
+	uniform_real_distribution<float> angleDist(0.f, XM_2PI);
+	uniform_real_distribution<float> offsetDist(-ISLAND_SIZE * 0.7f, ISLAND_SIZE * 0.7f); // More conservative bounds
+
+	int wallCount = wallCountDist(*gen);
+	vector<Wall> tempWalls;
+	const int MAX_ATTEMPTS = 50; // Prevent infinite loops
+
+	for (int i = 0; i < wallCount; ++i) {
+		bool validWall = false;
+		int attempts = 0;
+
+		while (!validWall && attempts < MAX_ATTEMPTS) {
+			attempts++;
+
+			// Generate random wall parameters
+			float angle = angleDist(*gen);
+			float length = uniform_real_distribution<float>(
+				MIN_WALL_LENGTH,
+				min(MAX_WALL_LENGTH, ISLAND_SIZE * 1.4f) // Don't exceed reasonable length
+			)(*gen);
+
+			// Generate start point with safe margins
+			float offsetX = offsetDist(*gen);
+			float offsetZ = offsetDist(*gen);
+
+			// Calculate start and end points in local space
+			XMFLOAT3 localStart = { offsetX, 0.f, offsetZ };
+			XMFLOAT3 localEnd = {
+				localStart.x + cosf(angle) * length,
+				0.f,
+				localStart.z + sinf(angle) * length
+			};
+
+			// Check if both points are within island bounds
+			if (fabs(localStart.x) > ISLAND_SIZE || fabs(localStart.z) > ISLAND_SIZE ||
+				fabs(localEnd.x) > ISLAND_SIZE || fabs(localEnd.z) > ISLAND_SIZE) {
+				continue; // Try again if out of bounds
+			}
+
+			// Transform points to world space for overlap checking
+			XMMATRIX transform = XMMatrixRotationY(island.rotationY) *
+				XMMatrixTranslation(island.position.x, island.position.y, island.position.z);
+
+			XMVECTOR worldStart = XMVector3TransformCoord(XMLoadFloat3(&localStart), transform);
+			XMVECTOR worldEnd = XMVector3TransformCoord(XMLoadFloat3(&localEnd), transform);
+
+			// Ensure transformed coordinates are valid
+			XMFLOAT3 transformedStart, transformedEnd;
+			XMStoreFloat3(&transformedStart, worldStart);
+			XMStoreFloat3(&transformedEnd, worldEnd);
+
+			if (std::isnan(transformedStart.x) || std::isnan(transformedStart.z) ||
+				std::isnan(transformedEnd.x) || std::isnan(transformedEnd.z)) {
+				continue;  // Skip invalid walls
+			}
+
+			// Check for overlaps with existing walls
+			bool overlaps = false;
+			for (const auto& existingWall : tempWalls) {
+				XMVECTOR eStart = XMLoadFloat3(&existingWall.start);
+				XMVECTOR eEnd = XMLoadFloat3(&existingWall.end);
+
+				// Simple distance check between wall segments
+				if (XMVectorGetX(XMVector3Length(worldStart - eStart)) < WALL_SAFE_MARGIN ||
+					XMVectorGetX(XMVector3Length(worldStart - eEnd)) < WALL_SAFE_MARGIN ||
+					XMVectorGetX(XMVector3Length(worldEnd - eStart)) < WALL_SAFE_MARGIN ||
+					XMVectorGetX(XMVector3Length(worldEnd - eEnd)) < WALL_SAFE_MARGIN) {
+					overlaps = true;
+					break;
+				}
+			}
+
+			if (!overlaps) {
+				Wall wall;
+				wall.height = WALL_HEIGHT;
+				XMStoreFloat3(&wall.start, worldStart);
+				XMStoreFloat3(&wall.end, worldEnd);
+				tempWalls.push_back(wall);
+				validWall = true;
+			}
+		}
+	}
+
+	// Commit valid walls to the island
+	island.walls = move(tempWalls);
 }

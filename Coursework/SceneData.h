@@ -11,12 +11,12 @@ This header file is used to store all the data into a single struct for ease of 
 // Light Data Structure
 struct LightData {
 public:
-	float ambientColour[4] = { 0.2f, 0.2f, 0.3f, 1.0f };
-	float diffuseColour[4] = { 1.f, 1.f, 1.0f, 1.0f };
+	float ambientColour[4] = { 0.05f, 0.05f, 0.07f, 1.0f };
+	float diffuseColour[4] = { 0.1f, 0.1f, 0.1f, 1.0f };
 	float specularColour[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 	float spec_pow = 64.f;
 	float pointLight_pos1[3] = { 56.8f, 16.25f, 78.75f };
-	float pointLight1Colour[4] = { 1.f, 0.f, 0.f, 1.0f };
+	float pointLight1Colour[4] = { 0.6f, 0.6f, 0.6f, 1.f };
 	float pointLight_pos2[3] = { 53.75f, 3.75f, 66.25f };
 	float pointLight2Colour[4] = { 1.f, 0.675f, 0.078f, 1.0f };
 	float pointLightRadius[2] = { 6.91f, 0.28f };
@@ -135,6 +135,12 @@ public:
 		lightData.pointLight_pos1[0] = x;
 		lightData.pointLight_pos1[1] = y;
 		lightData.pointLight_pos1[2] = z;
+	}
+
+	void setFireflyPosition(float x, float y, float z) {
+		fireflyData.objPos[0] = x;
+		fireflyData.objPos[1] = y;
+		fireflyData.objPos[2] = z;
 	}
 };
 

@@ -1,5 +1,7 @@
 ﻿#include "App1.h"
 #include <DirectXMath.h>
+#include <windows.h>
+#include <string>
 using namespace DirectX;
 
 AppMode currentMode = AppMode::FlyCam;
@@ -39,18 +41,19 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int screenWidth, int screenHeigh
 	SCREEN_WIDTH = screenWidth;
 	SCREEN_HEIGHT = screenHeight;
 
-	// Initialize all the resources required
+	initAudio();
 	initComponents();
 }
 
 bool App1::render() {
-	renderer->beginScene(0.15f, 0.1f, 0.3f, 1.0f);
+	renderer->beginScene(0.f, 0.f, 0.f, 1.0f);
 	renderer->setAlphaBlending(true);
 
 	// Set up the lights from Scene Data
 	XMFLOAT3 playerPos = player->getPosition();
 
-	// Update SceneData with player's light position
+	// Update point light and firefly position to player's position
+	sceneData->setFireflyPosition(playerPos.x, playerPos.y - 1.f, playerPos.z);
 	sceneData->setPointLight1Position(playerPos.x, playerPos.y + 2.f, playerPos.z);
 
 	spotLight->setDiffuseColour(sceneData->lightData.diffuseColour[0], sceneData->lightData.diffuseColour[1], sceneData->lightData.diffuseColour[2], sceneData->lightData.diffuseColour[3]);
@@ -68,16 +71,45 @@ bool App1::render() {
 
 	sceneData->waterData.timeVal += timer->getTime();
 
-
 	XMMATRIX worldMatrix = renderer->getWorldMatrix();
 	XMMATRIX viewMatrix = camera->getViewMatrix();
 	XMMATRIX projectionMatrix = renderer->getProjectionMatrix();
 	XMMATRIX identity = XMMatrixIdentity();
 
+	renderAudio();
 	getShadowDepthMap(worldMatrix, viewMatrix, projectionMatrix, identity);
 	finalRender(worldMatrix, viewMatrix, projectionMatrix, identity);
+	renderPlayer();
+	renderGhost(worldMatrix, viewMatrix, projectionMatrix);
 
+	gui();
 
+	renderer->endScene();
+
+	return true;
+}
+
+float App1::randomFloat(float min, float max) {
+	return min + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / (max - min)));
+}
+
+/*****************************    Renders    ************************************/
+
+void App1::renderAudio() {
+	// Start playing if not already playing
+	if (bgm1Instance) {
+		FMOD_STUDIO_PLAYBACK_STATE state;
+		bgm1Instance->getPlaybackState(&state);
+		if (state != FMOD_STUDIO_PLAYBACK_PLAYING) {
+			bgm1Instance->start();
+		}
+	}
+
+	// Update FMOD system
+	studioSystem->update();
+}
+
+void App1::renderPlayer() {
 	float dt = timer->getTime();
 	if (dt < 1e-6f) dt = 0.016f;
 
@@ -94,16 +126,12 @@ bool App1::render() {
 	float minY = terrainY + m_camEyeHeight;
 
 	if (curPos.y < minY) {
-		// clamp above surface
 		curPos.y = minY;
-
-		// compute sliding: remove into-terrain component
 		XMFLOAT3 normal = terrainShader->getNormal(curPos.x, curPos.z);
 		XMVECTOR N = XMLoadFloat3(&normal);
 		XMVECTOR proj = XMVectorScale(N, XMVectorGetX(XMVector3Dot(m_camVelocity, N)));
 		XMVECTOR slideVel = XMVectorSubtract(m_camVelocity, proj);
 
-		// reset position based on slide
 		XMFLOAT3 sv;
 		XMStoreFloat3(&sv, slideVel);
 		curPos.x = m_lastCamPos.x + sv.x * dt;
@@ -115,30 +143,153 @@ bool App1::render() {
 
 	m_lastCamPos = curPos;
 
-	if (currentMode == AppMode::Play)
-	{
+	// Moved outside to class member initialization
+	// static bool firstTimeInPlayMode = true; 
+
+	if (currentMode == AppMode::Play) {
+		if (firstTimeInPlayMode) {
+			XMFLOAT3 islandPos = voronoiIslands->GetRandomIslandPosition();
+			float terrainHeight = terrainShader->getHeight(islandPos.x, islandPos.z);
+
+			// Set both player and camera positions together
+			player->setPosition(islandPos.x, terrainHeight + 2.0f, islandPos.z);
+
+			// Sync camera with player
+			XMFLOAT3 camPos = player->getCameraPosition();
+			camera->setPosition(camPos.x, camPos.y, camPos.z);
+			camera->setRotation(0.0f, 0.0f, 0.0f);
+
+			firstTimeInPlayMode = false;
+		}
+
 		player->update(dt, input, terrainShader);
 		player->handleMouseLook(input, dt, this->wnd, this->sceneWidth, this->sceneHeight);
 
-		// Set camera position and rotation based on player
+		// Update camera from player
 		XMFLOAT3 camPos = player->getCameraPosition();
-
 		camera->setPosition(camPos.x, camPos.y, camPos.z);
 		camera->setRotation(player->getRotation().x, player->getRotation().y, 0.0f);
 		camera->update();
+
+		if (input->isKeyDown('C') && !sonarActive) {
+			sonarActive = true;
+			sceneData->tessMesh = true;
+			sonarTime = 0.0f;
+			sonarOrigin = player->getPosition(); // Use player position directly
+		}
 	}
-	else camera->update();
+	else {
+		camera->update();
+	}
 
-
-
-	gui();
-
-	renderer->endScene();
-
-	return true;
+	if (sonarActive) {
+		sonarTime += timer->getTime();
+		if (sonarTime >= sonarDuration) {
+			sonarActive = false;
+			sceneData->tessMesh = false;
+			wireframeToggle = false;
+		}
+	}
 }
 
-/*****************************    Renders    ************************************/
+void App1::renderGhost(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix) {
+	float deltaTime = timer->getTime();
+	fireflyLifetime -= deltaTime;
+
+	if (!fireflyActive || fireflyLifetime <= 0.f) {
+		const auto& islands = voronoiIslands->GetIslands();
+		if (!islands.empty()) {
+			currentIslandIndex = rand() % islands.size();
+			const auto& island = islands[currentIslandIndex];
+
+			fireflyPosition = XMFLOAT3{
+				island.position.x + (rand() % 10 - 5),
+				island.position.y + 3.f,
+				island.position.z + (rand() % 10 - 5)
+			};
+
+			fireflyVelocity = XMFLOAT3{
+				randomFloat(-1.f, 1.f) * 2.f,
+				0.f,
+				randomFloat(-1.f, 1.f) * 2.f
+			};
+
+			fireflyLifetime = fireflyMaxLifetime;
+			fireflyActive = true;
+
+			// Reset direction change timing
+			directionChangeTimer = 0.0f;
+			nextDirectionChangeTime = randomFloat(1.0f, 2.0f);
+		}
+	}
+	else {
+		const auto& island = voronoiIslands->GetIslands()[currentIslandIndex];
+		float halfSize = 25.0f;
+
+		float minX = island.position.x - halfSize;
+		float maxX = island.position.x + halfSize;
+		float minZ = island.position.z - halfSize;
+		float maxZ = island.position.z + halfSize;
+
+		// If firefly is near edge, bounce/change direction
+		bool bounced = false;
+
+		if (fireflyPosition.x < minX || fireflyPosition.x > maxX) {
+			fireflyVelocity.x *= -1.f; // Reverse X direction
+			fireflyPosition.x = max(minX, min(maxX, fireflyPosition.x)); // Clamp
+			bounced = true;
+		}
+		if (fireflyPosition.z < minZ || fireflyPosition.z > maxZ) {
+			fireflyVelocity.z *= -1.f; // Reverse Z direction
+			fireflyPosition.z = max(minZ, min(maxZ, fireflyPosition.z)); // Clamp
+			bounced = true;
+		}
+
+		// Optionally refresh direction timer after bounce
+		if (bounced) {
+			directionChangeTimer = 0.0f;
+			nextDirectionChangeTime = randomFloat(1.0f, 2.0f);
+		}
+
+
+		// Update position
+		fireflyPosition.x += fireflyVelocity.x * deltaTime;
+		fireflyPosition.z += fireflyVelocity.z * deltaTime;
+
+		// Randomly change direction every few seconds
+		directionChangeTimer += deltaTime;
+		if (directionChangeTimer >= nextDirectionChangeTime) {
+			fireflyVelocity = XMFLOAT3{
+				randomFloat(5.f, 7.f) * 2.f,
+				0.f,
+				randomFloat(5.f, 7.f) * 2.f
+			};
+
+			directionChangeTimer = 0.0f;
+			nextDirectionChangeTime = randomFloat(1.0f, 2.0f); // Next interval
+		}
+	}
+
+
+	if (fireflyActive) {
+		XMMATRIX fireflyWorldMatrix = XMMatrixTranslation(fireflyPosition.x, fireflyPosition.y, fireflyPosition.z);
+
+		firefly->sendData(renderer->getDeviceContext());
+		fireflyShader->setShaderParameters(
+			renderer->getDeviceContext(),
+			fireflyWorldMatrix,
+			viewMatrix,
+			projectionMatrix,
+			textureMgr->getTexture(L"firefly"),
+			camera,
+			spotLight,
+			directionalLight,
+			sceneData
+		);
+		fireflyShader->render(renderer->getDeviceContext(), firefly->getIndexCount());
+	}
+}
+
 
 // Shadow Depth Map
 // Two types of lights are used for shadow depth mapping: a directional light and a spotlight. The shadow map is set up for rendering by binding the depth buffer and disabling colour rendering. Shadows are created by rendering the scene from the perspective of each light, capturing depth information. This data is then used in the final render to produce shadows. The position is calculated and updated in the lookAt function, which is used to generate the orthographic matrix. After generating the view matrix for both lights and rendering the meshes with their respective shaders, the render target is reset to the back buffer, and the viewport is restored.
@@ -175,7 +326,7 @@ void App1::getShadowDepthMap(const XMMATRIX& worldMatrix, const XMMATRIX& viewMa
 
 		// Terrain - own vertex shader needed to calculate displacements to cast shows correclty on it
 		topTerrain->sendData(renderer->getDeviceContext(), D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
-		terrainDepthShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, viewMatrix, projectionMatrix, textureMgr->getTexture(L"terrain_heightmap"), textureMgr->getTexture(L"colour_1_height"), camera);
+		terrainDepthShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, viewMatrix, projectionMatrix, textureMgr->getTexture(L"terrain_heightmapCUT"), textureMgr->getTexture(L"colour_1_heightCUT"), camera);
 		terrainDepthShader->render(renderer->getDeviceContext(), topTerrain->getIndexCount());
 
 		// Water - own vertex shader needed to calculate displacements to cast shows correclty on it
@@ -204,13 +355,17 @@ void App1::finalRender(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, 
 		// Post-processing effect: Bloom on stars texture along with Gaussian blur
 		applyBloom(worldMatrix, identityMatrix, projectionMatrix);
 
-		renderDome(worldMatrix, viewMatrix, projectionMatrix);
 		renderTerrain(worldMatrix, viewMatrix, projectionMatrix);
+		// Post-processing effect: When player presses 'C' in Play Mode, wireframe is displayed using RtT for the terrain in a radius. 
+		//if (sonarActive) applyPulse(worldMatrix, viewMatrix, projectionMatrix);
+
+		renderDome(worldMatrix, viewMatrix, projectionMatrix);
 		renderFirefly(worldMatrix, viewMatrix, projectionMatrix);
-		//renderWater(worldMatrix, viewMatrix, projectionMatrix);
+		renderWater(worldMatrix, viewMatrix, projectionMatrix);
 		renderMoon(worldMatrix, viewMatrix, projectionMatrix);
 	}
 }
+
 
 void App1::applyBloom(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix) {
 	renderBloom->setRenderTarget(renderer->getDeviceContext());
@@ -227,9 +382,25 @@ void App1::applyBloom(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, c
 	renderer->setBackBufferRenderTarget();
 }
 
+void App1::applyPulse(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix)
+{
+	renderEcho->setRenderTarget(renderer->getDeviceContext());
+	renderEcho->clearRenderTarget(renderer->getDeviceContext(), 0.0f, 0.0f, 0.0f, 1.0f);
+
+	camera->update();
+
+	topTerrain->sendData(renderer->getDeviceContext());
+	echoPulse->setShaderParameters(renderer->getDeviceContext(), XMMatrixIdentity(), XMMatrixIdentity(), XMMatrixIdentity(),
+		renderEcho->getShaderResourceView(), sonarActive, sonarOrigin, sonarMaxRadius * (sonarTime / sonarDuration), sonarTime,
+		SCREEN_WIDTH, SCREEN_HEIGHT, camera->getPosition(), sceneData->waterData.timeVal, sceneData);
+	echoPulse->render(renderer->getDeviceContext(), topTerrain->getIndexCount());
+
+	renderer->setBackBufferRenderTarget();
+}
+
 void App1::renderDome(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix) {
 
-	XMMATRIX skyDomeWorldMatrix = XMMatrixScaling(700.f, 200.f, 700.f) * XMMatrixTranslation(50.f, 30.f, 50.f) * worldMatrix;
+	XMMATRIX skyDomeWorldMatrix = XMMatrixScaling(1000.f, 200.f, 1000.f) * XMMatrixTranslation(50.f, 30.f, 50.f) * worldMatrix;
 
 	circleDome->sendData(renderer->getDeviceContext());
 	domeShader->setShaderParameters(renderer->getDeviceContext(), skyDomeWorldMatrix, viewMatrix, projectionMatrix, renderBloom->getShaderResourceView(), sceneData);
@@ -250,8 +421,11 @@ void App1::generateIslands(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatr
 			XMMatrixRotationY(island.rotationY) *
 			XMMatrixTranslation(island.position.x, island.position.y, island.position.z);
 
+		float sonarRadius = sonarMaxRadius * (sonarTime / sonarDuration);
+
 		topTerrain->sendData(renderer->getDeviceContext(), D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
 		terrainShader->setShaderParameters(renderer->getDeviceContext(), islandWorld, viewMatrix, projectionMatrix,
+			sonarActive, sonarOrigin, sonarRadius,
 			textureMgr->getTexture(L"terrain_heightmapCUT"),
 			textureMgr->getTexture(L"colour_1_heightCUT"),
 			textureMgr->getTexture(L"colour_1"),
@@ -263,10 +437,58 @@ void App1::generateIslands(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatr
 	}
 }
 
+void App1::generateWalls(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix) {
+	const float wallHeight = 10.0f;
+	const float wallThickness = 1.0f;
+
+	for (const auto& island : voronoiIslands->GetIslands()) {
+		if (!island.initialized) continue;
+
+		for (const auto& wall : island.walls) {
+			// Calculate wall direction and length
+			XMVECTOR start = XMLoadFloat3(&wall.start);
+			XMVECTOR end = XMLoadFloat3(&wall.end);
+			XMVECTOR dir = XMVector3Normalize(end - start);
+			float length = XMVectorGetX(XMVector3Length(end - start));
+
+			// Calculate center position
+			XMVECTOR center = (start + end) * 0.5f;
+			center = XMVectorSetY(center, wallHeight * 0.5f); // Raise to half height
+
+			// Calculate rotation angle
+			float angle = atan2(XMVectorGetZ(dir), XMVectorGetX(dir));
+
+			// Create world matrix for the wall
+			XMMATRIX wallWorld = XMMatrixScaling(length, wallHeight, wallThickness) *
+				XMMatrixRotationY(angle) *
+				XMMatrixTranslation(
+					XMVectorGetX(center),
+					XMVectorGetY(center),
+					XMVectorGetZ(center)
+				);
+
+			float sonarRadius = sonarMaxRadius * (sonarTime / sonarDuration);
+
+			// Render the wall
+			topTerrain->sendData(renderer->getDeviceContext(), D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
+			terrainShader->setShaderParameters(renderer->getDeviceContext(), wallWorld, viewMatrix, projectionMatrix,
+				sonarActive, sonarOrigin, sonarRadius,
+				textureMgr->getTexture(L"terrain_heightmapCUT"),
+				textureMgr->getTexture(L"colour_1_heightCUT"),
+				textureMgr->getTexture(L"colour_1"),
+				textureMgr->getTexture(L"colour_2"),
+				sceneData->shadowLightsData.enableSpotShadow ? shadowMap[0]->getDepthMapSRV() : nullptr,
+				sceneData->shadowLightsData.enableDirShadow ? shadowMap[1]->getDepthMapSRV() : nullptr,
+				camera, spotLight, directionalLight, sceneData);
+			terrainShader->render(renderer->getDeviceContext(), topTerrain->getIndexCount());
+		}
+	}
+}
+
 void App1::generateBridges(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix) {
-	const float bridgeWidth = 2.0f;
+	const float bridgeWidth = 3.0f;
 	const float bridgeHeight = 0.5f;
-	const float halfIslandSize = 25.0f;
+	const float halfRegionSize = 75.0f;
 
 	for (const auto& bridge : voronoiIslands->GetBridges()) {
 		const auto& a = voronoiIslands->GetIslands()[bridge.islandA];
@@ -280,16 +502,16 @@ void App1::generateBridges(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatr
 		XMFLOAT3 entryPointB = b.position;
 
 		if (fabs(XMVectorGetX(dir)) > fabs(XMVectorGetZ(dir))) {
-			exitPointA.x += (XMVectorGetX(dir) > 0 ? halfIslandSize : -halfIslandSize);
-			exitPointA.z += tan(exitAngle) * halfIslandSize;
-			entryPointB.x += (XMVectorGetX(dir) > 0 ? -halfIslandSize : halfIslandSize);
-			entryPointB.z += tan(exitAngle) * -halfIslandSize;
+			exitPointA.x += (XMVectorGetX(dir) > 0 ? halfRegionSize : -halfRegionSize);
+			exitPointA.z += tan(exitAngle) * halfRegionSize;
+			entryPointB.x += (XMVectorGetX(dir) > 0 ? -halfRegionSize : halfRegionSize);
+			entryPointB.z += tan(exitAngle) * -halfRegionSize;
 		}
 		else {
-			exitPointA.z += (XMVectorGetZ(dir) > 0 ? halfIslandSize : -halfIslandSize);
-			exitPointA.x += 1.0f / tan(exitAngle) * halfIslandSize;
-			entryPointB.z += (XMVectorGetZ(dir) > 0 ? -halfIslandSize : halfIslandSize);
-			entryPointB.x += 1.0f / tan(exitAngle) * -halfIslandSize;
+			exitPointA.z += (XMVectorGetZ(dir) > 0 ? halfRegionSize : -halfRegionSize);
+			exitPointA.x += 1.0f / tan(exitAngle) * halfRegionSize;
+			entryPointB.z += (XMVectorGetZ(dir) > 0 ? -halfRegionSize : halfRegionSize);
+			entryPointB.x += 1.0f / tan(exitAngle) * -halfRegionSize;
 		}
 
 		XMVECTOR bridgeStart = XMLoadFloat3(&exitPointA);
@@ -301,12 +523,15 @@ void App1::generateBridges(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatr
 			XMMatrixRotationY(-atan2(XMVectorGetZ(dir), XMVectorGetX(dir))) *
 			XMMatrixTranslation(
 				XMVectorGetX(bridgeCenter),
-				bridgeHeight * 0.5f,
+				bridgeHeight,
 				XMVectorGetZ(bridgeCenter)
 			);
 
+		float sonarRadius = sonarMaxRadius * (sonarTime / sonarDuration);
+
 		topTerrain->sendData(renderer->getDeviceContext(), D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
 		terrainShader->setShaderParameters(renderer->getDeviceContext(), bridgeWorld, viewMatrix, projectionMatrix,
+			sonarActive, sonarOrigin, sonarRadius,
 			textureMgr->getTexture(L"bridge_texture"),
 			textureMgr->getTexture(L"colour_1_heightCUT"),
 			textureMgr->getTexture(L"colour_1"),
@@ -319,15 +544,19 @@ void App1::generateBridges(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatr
 }
 
 void App1::renderTerrain(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix) {
-	renderer->setCullOn(false);
+	if (!wireframeToggle) renderer->setCullOn(false);
 	generateIslands(worldMatrix, viewMatrix, projectionMatrix);
 	generateBridges(worldMatrix, viewMatrix, projectionMatrix);
-	renderer->setCullOn(true);
+	generateWalls(worldMatrix, viewMatrix, projectionMatrix);
+
+	if (!wireframeToggle)renderer->setCullOn(true);
 }
 
-
 void App1::renderFirefly(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix) {
-	XMMATRIX fireflyWorldMatrix = XMMatrixTranslation(sceneData->fireflyData.objPos[0], sceneData->fireflyData.objPos[1], sceneData->fireflyData.objPos[2]) * worldMatrix;
+
+	XMMATRIX fireflyScale = XMMatrixScaling(0.2f, 0.2f, 0.2f);
+	XMMATRIX fireflyTranslate = XMMatrixTranslation(sceneData->fireflyData.objPos[0], sceneData->fireflyData.objPos[1], sceneData->fireflyData.objPos[2]);
+	XMMATRIX fireflyWorldMatrix = fireflyScale * fireflyTranslate * worldMatrix;
 
 	firefly->sendData(renderer->getDeviceContext());
 	fireflyShader->setShaderParameters(renderer->getDeviceContext(), fireflyWorldMatrix, viewMatrix, projectionMatrix, textureMgr->getTexture(L"firefly"), camera, spotLight, directionalLight, sceneData);
@@ -337,14 +566,14 @@ void App1::renderFirefly(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix
 void App1::renderWater(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix) {
 	XMMATRIX waterWorldMatrix = XMMatrixTranslation(1.f, 0.0f, 1.0f) * worldMatrix;
 
-	renderer->setCullBack(true);
+	if (!wireframeToggle) renderer->setCullBack(true);
 
 	// GUI conditional statement - Toggle shadows
 	water->sendData(renderer->getDeviceContext());
 	waterShader->setShaderParameters(renderer->getDeviceContext(), waterWorldMatrix, viewMatrix, projectionMatrix, textureMgr->getTexture(L"water"), sceneData->shadowLightsData.enableSpotShadow ? shadowMap[0]->getDepthMapSRV() : nullptr, sceneData->shadowLightsData.enableDirShadow ? shadowMap[1]->getDepthMapSRV() : nullptr, camera, spotLight, directionalLight, sceneData);
 	waterShader->render(renderer->getDeviceContext(), water->getIndexCount());
 
-	renderer->setCullBack(false);
+	if (!wireframeToggle) renderer->setCullBack(false);
 }
 
 void App1::renderMoon(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix) {
@@ -467,13 +696,14 @@ void App1::gui()
 
 	ImGui::Text("Voronoi Islands");
 	ImGui::SliderInt("Grid Size", &gridSize, islandSize, 700);
-	ImGui::SliderInt("Island Count", &islandCount, 1, 6);
+	ImGui::SliderInt("Island Count", &islandCount, 2, 6);
 
 	if (ImGui::Button("Regenerate Islands")) {
 		gridSize = max(gridSize, static_cast<int>(islandSize * 2));
 		voronoiIslands = make_unique<VoronoiIslands>(gridSize, islandCount);
 		voronoiIslands->GenerateIslands();
 		terrainShader->setIslands(voronoiIslands->GetIslands(), islandSize);
+		terrainShader->setBridges(voronoiIslands->GetBridges(), voronoiIslands->GetIslands());
 	}
 
 	ImGui::Separator();
@@ -605,8 +835,32 @@ bool App1::frame()
 
 /*****************************    Initialize Resources    ************************************/
 
-void App1::initComponents() {
+void App1::initAudio() {
+	// FMOD - Audio
+	FMOD::Studio::System::create(&studioSystem);
+	studioSystem->initialize(64, FMOD_STUDIO_INIT_NORMAL, FMOD_INIT_NORMAL, nullptr);
+	const char* bankPaths[] = {
+		"../FMOD Project/CMP505_Audio/Build/Desktop/CMP505.bank",
+		"../FMOD Project/CMP505_Audio/Build/Desktop/CMP505.strings.bank"
+	};
 
+
+	// Load banks first
+	for (const char* path : bankPaths) {
+		FMOD::Studio::Bank* bank = nullptr;
+		studioSystem->loadBankFile(path, FMOD_STUDIO_LOAD_BANK_NORMAL, &bank);
+	}
+
+	// Wait for banks to load
+	studioSystem->flushCommands();
+
+	// Load BGM1 event
+	FMOD::Studio::EventDescription* bgm1Description = nullptr;
+	studioSystem->getEvent("event:/BGM1", &bgm1Description);
+	bgm1Description->createInstance(&bgm1Instance);
+}
+
+void App1::initComponents() {
 	// Camera setup
 	camera->setPosition(40.8f, 13.f, -11.8f);
 	camera->setRotation(2.3f, 9.9f, 0.f);
@@ -645,6 +899,7 @@ void App1::initComponents() {
 	voronoiIslands = make_unique<VoronoiIslands>(gridSize, islandCount);
 	voronoiIslands->GenerateIslands();
 	terrainShader->setIslands(voronoiIslands->GetIslands(), islandSize);
+	terrainShader->setBridges(voronoiIslands->GetBridges(), voronoiIslands->GetIslands());
 
 	// Water
 	water = new PlaneMesh(renderer->getDevice(), renderer->getDeviceContext());
@@ -664,6 +919,11 @@ void App1::initComponents() {
 	// Bloom
 	renderBloom = new RenderTexture(renderer->getDevice(), SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_NEAR, SCREEN_DEPTH);
 	bloomShader = new Bloom(renderer->getDevice(), hwnd);
+
+	// Echo Pulse
+	//renderTerrainRT = new RenderTexture(renderer->getDevice(), SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_NEAR, SCREEN_DEPTH);
+	echoPulse = new EchoPulse(renderer->getDevice(), hwnd);
+	renderEcho = new RenderTexture(renderer->getDevice(), SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_NEAR, SCREEN_DEPTH);
 
 	// Depth Shaders
 	depthShader = new DepthShader(renderer->getDevice(), hwnd);

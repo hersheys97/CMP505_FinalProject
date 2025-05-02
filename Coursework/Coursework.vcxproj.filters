@@ -61,6 +61,12 @@
     <Filter Include="Resource Files\RtT">
       <UniqueIdentifier>{8bc9e740-1560-4b19-85f8-eec07fef4944}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Resource Files\RtT\Bloom">
+      <UniqueIdentifier>{f0eafc90-a533-45db-8e8a-ccc4a70278b1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\RtT\EchoPulse">
+      <UniqueIdentifier>{d041da0e-8acc-4e04-a9a0-0b78e40baa99}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="App1.cpp">
@@ -101,6 +107,9 @@
     </ClCompile>
     <ClCompile Include="VoronoiIslands.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="EchoPulse.cpp">
+      <Filter>Source Files\RtT</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -143,14 +152,11 @@
     <ClInclude Include="VoronoiIslands.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="EchoPulse.h">
+      <Filter>Header Files\RtT</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="bloom_ps.hlsl">
-      <Filter>Resource Files\RtT</Filter>
-    </FxCompile>
-    <FxCompile Include="bloom_vs.hlsl">
-      <Filter>Resource Files\RtT</Filter>
-    </FxCompile>
     <FxCompile Include="depth_ps.hlsl">
       <Filter>Resource Files\Depth</Filter>
     </FxCompile>
@@ -204,6 +210,18 @@
     </FxCompile>
     <FxCompile Include="water_vs.hlsl">
       <Filter>Resource Files\Mesh\Water</Filter>
+    </FxCompile>
+    <FxCompile Include="bloom_ps.hlsl">
+      <Filter>Resource Files\RtT\Bloom</Filter>
+    </FxCompile>
+    <FxCompile Include="bloom_vs.hlsl">
+      <Filter>Resource Files\RtT\Bloom</Filter>
+    </FxCompile>
+    <FxCompile Include="echopulse_ps.hlsl">
+      <Filter>Resource Files\RtT\EchoPulse</Filter>
+    </FxCompile>
+    <FxCompile Include="echopulse_vs.hlsl">
+      <Filter>Resource Files\RtT\EchoPulse</Filter>
     </FxCompile>
   </ItemGroup>
 </Project>

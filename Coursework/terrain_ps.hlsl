@@ -54,6 +54,14 @@ cbuffer LightBuffer : register(b0)
     float4 directionalColour; // directional light colour
 };
 
+cbuffer SonarBuffer : register(b1)
+{
+    float3 sonarOrigin;
+    float sonarRadius;
+    bool sonarActive;
+    float3 padding;
+};
+
 /****************************************************************************************************************************/
 
 // Struct to define the input to the pixel shader
@@ -288,7 +296,7 @@ float4 main(InputType input) : SV_TARGET
     float4 pointLight2 = CalculatePointLight(pointLight2Pos, pointLight2Radius, input.worldPosition, terrainNormal, pointLight2Colour);
     
     // Point lights intensity
-    float intensityFactor = 150.0f;
+    float intensityFactor = 1.0f;
     pointLight1 *= intensityFactor;
     pointLight2 *= intensityFactor;
     
@@ -320,10 +328,31 @@ float4 main(InputType input) : SV_TARGET
     finalColour += specular;
     finalColour = saturate(finalColour * terrainColour);
     
+    
+    /****************************************************************************************************************************/
+    // Sonar wireframe overlay
+    float4 testfinal = float4(0.0f, 0.0f, 0.0f, 1.0f);
+    if (sonarActive)
+    {
+        float3 toPixel = input.worldPosition - sonarOrigin;
+        float dist = length(toPixel);
+    
+        // Thin ring calculation
+        float thickness = 1.0f; // Thickness of the sonar ring
+        float ring = abs(dist - sonarRadius);
+        float ringFactor = smoothstep(0.0f, thickness, thickness - ring);
+    
+        float3 ringColor = float3(1.0f, 0.3f, 0.1f); // Reddish-orange ring
+        testfinal.rgb = lerp(testfinal.rgb, ringColor, ringFactor);
+    }
+    else
+        return float4(1.0f, 1.0f, 1.0f, 1.0f);
+    
     //Apply gamma correction
     //finalColour = pow(finalColour, 1.0f / 2.2f);
     
     finalColour.w = 1.f; // Setting alpha
     
-    return finalColour; // pow(finalColour, 2.2f)
+   // return finalColour; // pow(finalColour, 2.2f)
+    return testfinal;
 }

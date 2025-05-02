@@ -1,6 +1,23 @@
 ﻿#include "TerrainManipulation.h"
 #include <cmath>
 
+static float distPointLineSegment2D(
+	float px, float pz,
+	float x0, float z0,
+	float x1, float z1)
+{
+	float vx = x1 - x0, vz = z1 - z0;
+	float wx = px - x0, wz = pz - z0;
+	float c1 = vx * wx + vz * wz;
+	float c2 = vx * vx + vz * vz;
+	float t = (c2 < 1e-6f) ? 0.f : c1 / c2;
+	t = max(0.f, min(1.f, t));
+	float ix = x0 + t * vx, iz = z0 + t * vz;
+	float dx = px - ix, dz = pz - iz;
+	return sqrtf(dx * dx + dz * dz);
+}
+
+
 TerrainManipulation::TerrainManipulation(ID3D11Device* device, HWND hwnd) : BaseShader(device, hwnd)
 {
 	initShader(L"terrain_vs.cso", L"terrain_hs.cso", L"terrain_ds.cso", L"terrain_ps.cso");
@@ -59,6 +76,11 @@ TerrainManipulation::~TerrainManipulation()
 		cameraBuffer->Release();
 		cameraBuffer = 0;
 	}
+	if (sonarBuffer)
+	{
+		sonarBuffer->Release();
+		sonarBuffer = 0;
+	}
 
 	//Release base shader components
 	BaseShader::~BaseShader();
@@ -74,6 +96,7 @@ void TerrainManipulation::initShader(const wchar_t* vsFilename, const wchar_t* p
 void TerrainManipulation::initShader(const wchar_t* vsFilename, const wchar_t* hsFilename, const wchar_t* dsFilename, const wchar_t* psFilename)
 {
 	D3D11_BUFFER_DESC bufferDesc;
+	D3D11_BUFFER_DESC sonarBufferDesc;
 	D3D11_SAMPLER_DESC samplerDesc;
 	D3D11_SAMPLER_DESC spotShadowDesc;
 
@@ -112,6 +135,14 @@ void TerrainManipulation::initShader(const wchar_t* vsFilename, const wchar_t* h
 	bufferDesc.MiscFlags = 0;
 	bufferDesc.StructureByteStride = 0;
 	renderer->CreateBuffer(&bufferDesc, NULL, &cameraBuffer);
+
+	sonarBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+	sonarBufferDesc.ByteWidth = sizeof(SonarBufferType);
+	sonarBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	sonarBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	sonarBufferDesc.MiscFlags = 0;
+	sonarBufferDesc.StructureByteStride = 0;
+	renderer->CreateBuffer(&sonarBufferDesc, NULL, &sonarBuffer);
 
 	// Create a terrain sampler state description.
 	samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
@@ -170,14 +201,37 @@ bool TerrainManipulation::isOnTerrain(float x, float z) const
 {
 	if (!m_islands) return false;
 
-	constexpr float meshHalf = 25.0f;    // half of your 50×50 quad
-	float allowed = (m_regionSize * 0.5f) + meshHalf;
+	constexpr float fullMesh = 50.0f;
+	float allowed = (m_regionSize * 0.5) + fullMesh;
 
 	for (const auto& isl : *m_islands)
 	{
-		float dx = x - isl.position.x;
-		float dz = z - isl.position.z;
-		if (fabsf(dx) <= allowed && fabsf(dz) <= allowed)
+		// Step 1: Translate the point into island local space
+		float localX = x - isl.position.x;
+		float localZ = z - isl.position.z;
+
+		// Step 2: Apply inverse rotation
+		float cosR = cosf(isl.rotationY);  // Inverse rotation
+		float sinR = sinf(isl.rotationY);
+
+		float rotatedX = localX * cosR - localZ * sinR;
+		float rotatedZ = localX * sinR + localZ * cosR;
+
+		// Step 3: Check if inside the axis-aligned 50x50 box
+		if (fabsf(rotatedX) <= fullMesh && fabsf(rotatedZ) <= fullMesh)
+			return true;
+	}
+	return false;
+}
+
+bool TerrainManipulation::onBridge(float x, float z) const {
+	for (auto& b : m_bridges) {
+		float d = distPointLineSegment2D(
+			x, z,
+			b.first.x, b.first.z,
+			b.second.x, b.second.z
+		);
+		if (d < m_bridgeWidth * 0.5f)
 			return true;
 	}
 	return false;
@@ -204,7 +258,9 @@ XMFLOAT3 TerrainManipulation::getNormal(float x, float z) const
 
 
 
-void TerrainManipulation::setShaderParameters(ID3D11DeviceContext* deviceContext, const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, ID3D11ShaderResourceView* terrain, ID3D11ShaderResourceView* texture_height, ID3D11ShaderResourceView* texture_colour, ID3D11ShaderResourceView* texture_colour1, ID3D11ShaderResourceView* depth1, ID3D11ShaderResourceView* depth2, Camera* camera, Light* light, Light* directionalLight, SceneData* sceneData)
+
+
+void TerrainManipulation::setShaderParameters(ID3D11DeviceContext* deviceContext, const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, bool sonarActive, XMFLOAT3 sonarOrigin, float sonarRadius, ID3D11ShaderResourceView* terrain, ID3D11ShaderResourceView* texture_height, ID3D11ShaderResourceView* texture_colour, ID3D11ShaderResourceView* texture_colour1, ID3D11ShaderResourceView* depth1, ID3D11ShaderResourceView* depth2, Camera* camera, Light* light, Light* directionalLight, SceneData* sceneData)
 {
 	HRESULT result;
 	D3D11_MAPPED_SUBRESOURCE mappedResource;
@@ -273,6 +329,15 @@ void TerrainManipulation::setShaderParameters(ID3D11DeviceContext* deviceContext
 	deviceContext->Unmap(lightBuffer, 0);
 	deviceContext->PSSetConstantBuffers(0, 1, &lightBuffer);
 
+	SonarBufferType* sonarPtr;
+	deviceContext->Map(sonarBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+	sonarPtr = (SonarBufferType*)mappedResource.pData;
+	sonarPtr->sonarOrigin = sonarOrigin;
+	sonarPtr->sonarRadius = sonarRadius;
+	sonarPtr->sonarActive = sonarActive;
+	sonarPtr->padding = XMFLOAT3(0.f, 0.f, 0.f); // Padding to ensure the structure is 16-byte aligned
+	deviceContext->Unmap(sonarBuffer, 0);
+	deviceContext->PSSetConstantBuffers(1, 1, &sonarBuffer);
 
 	// Pixel shader
 	deviceContext->PSSetShaderResources(0, 1, &terrain); // Main height map

@@ -9,6 +9,7 @@
 #include "MoonShader.h"
 #include "DomeShader.h"
 #include "Bloom.h"
+#include "EchoPulse.h"
 #include "DepthShader.h"
 #include "FireflyShader.h"
 #include "WaterDepthShader.h"
@@ -17,14 +18,15 @@
 #include "Player.h"
 #include "VoronoiIslands.h"
 
-enum class AppMode
-{
-	FlyCam,
-	Play
-};
+#include "fmod_studio.hpp"
+#include "fmod.hpp"
+#include "fmod_errors.h"
+#pragma comment(lib, "fmod_vc.lib") // Core FMOD library
+#pragma comment(lib, "fmodstudio_vc.lib") // FMOD Studio library
+
+enum class AppMode { FlyCam, Play };
 
 extern AppMode currentMode;
-
 
 class App1 : public BaseApplication
 {
@@ -41,13 +43,21 @@ protected:
 
 private:
 	// Initialization method
+	void initAudio();
 	void initComponents();
 
+	float randomFloat(float min, float max);
+
 	// Rendering methods
+	void renderAudio();
 	void getShadowDepthMap(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, const XMMATRIX& identityMatrix);
 	void finalRender(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, const XMMATRIX& identityMatrix);
+	void renderPlayer();
+	void renderGhost(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
 
 	void applyBloom(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
+	void applyPulse(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
+
 	void renderDome(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
 	void renderTerrain(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
 	void renderWater(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
@@ -56,6 +66,7 @@ private:
 
 	void generateIslands(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
 	void generateBridges(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
+	void generateWalls(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
 
 	// Cleanup method
 	void cleanup();
@@ -68,9 +79,14 @@ private:
 	WaterDepthShader* waterDepthShader;
 	TerrainDepthShader* terrainDepthShader;
 
-	// Render Texture
+	// Render Texture - Bloom
 	RenderTexture* renderBloom;
 	Bloom* bloomShader;
+
+	// Render Texture - EchoPulse
+	RenderTexture* renderTerrainRT;
+	RenderTexture* renderEcho;
+	EchoPulse* echoPulse;
 
 	// Dome
 	SphereMesh* circleDome;
@@ -103,6 +119,7 @@ private:
 	XMFLOAT3 m_lastCamPos = { 0.f,0.f,0.f };
 	XMVECTOR m_camVelocity = DirectX::XMVectorZero();
 	float m_camEyeHeight = 1.8f;
+	bool firstTimeInPlayMode = true;
 
 	// Voronoi Islands
 	unique_ptr<VoronoiIslands> voronoiIslands;
@@ -110,6 +127,27 @@ private:
 	int islandCount = 2;
 	float minIslandDistance = 30.0f;
 	int gridSize = 700;
+
+	// FMOD
+	FMOD::Studio::System* studioSystem = nullptr;
+	FMOD::Studio::EventInstance* bgm1Instance = nullptr;
+
+	// Echo Pulse
+	bool sonarActive = false;
+	float sonarTime = 0.0f;
+	float sonarDuration = 3.0f;
+	XMFLOAT3 sonarOrigin = { 0,0,0 };
+	float sonarMaxRadius = 80.0f;
+
+	// Ghost
+	XMFLOAT3 fireflyPosition = { 0.f, 0.f, 0.f };
+	XMFLOAT3 fireflyVelocity = { 0.f, 0.f, 0.f };
+	float fireflyLifetime = 0.f;
+	const float fireflyMaxLifetime = 10.f;
+	bool fireflyActive = false;
+	int currentIslandIndex = -1;
+	float directionChangeTimer = 0.0f;
+	float nextDirectionChangeTime = 1.0f; // Initial interval
 
 	// Screen dimensions
 	float SCREEN_WIDTH = 0.f;

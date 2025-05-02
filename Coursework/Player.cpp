@@ -1,6 +1,22 @@
 #include "Player.h"
 #include <algorithm>
 
+static float distPointLineSegment2D(
+	float px, float pz,
+	float x0, float z0,
+	float x1, float z1)
+{
+	float vx = x1 - x0, vz = z1 - z0;
+	float wx = px - x0, wz = pz - z0;
+	float c1 = vx * wx + vz * wz;
+	float c2 = vx * vx + vz * vz;
+	float t = (c2 < 1e-6f) ? 0.f : c1 / c2;
+	t = max(0.f, min(1.f, t));
+	float ix = x0 + t * vx, iz = z0 + t * vz;
+	float dx = px - ix, dz = pz - iz;
+	return std::sqrt(dx * dx + dz * dz);
+}
+
 template<typename T>
 T clamp(T v, T lo, T hi) {
 	return (v < lo) ? lo : (v > hi) ? hi : v;
@@ -10,10 +26,10 @@ Player::Player() :
 	position({ 58.881f, 8.507f, 68.2f }),
 	velocity({ 0.f, 0.f, 0.f }),
 	rotation({ 0.f, 0.f, 0.f }),
-	speed(15.0f),
+	speed(20.0f),
 	camEyeHeight(1.8f),
 	jumpForce(7.0f),
-	mouseSensitivity(0.2f),
+	mouseSensitivity(0.5f),
 	isJumping(false)
 {
 }
@@ -41,10 +57,14 @@ void Player::update(float deltaTime, Input* input, TerrainManipulation* terrain)
 	XMStoreFloat3(&worldMove, rotatedMove);
 
 	bool isOnTerrain = terrain->isOnTerrain(position.x, position.z);
-	float terrainHeight = isOnTerrain ? terrain->getHeight(position.x, position.z) : -100.f;
+	float terrainHeight = isOnTerrain ? terrain->getHeight(position.x, position.z) : -50.f;
 	bool isGrounded = isOnTerrain && (position.y <= (terrainHeight + camEyeHeight + 0.1f));
 
-	if (!isGrounded) {
+	bool isOnBridge = terrain->onBridge(position.x, position.z);
+	float bridgeHeight = isOnBridge ? terrain->getHeight(position.x, position.z) : -50.f;
+	bool isGrounded2 = isOnBridge && (position.y <= (bridgeHeight + camEyeHeight + 0.1f));
+
+	if (!isGrounded && !isGrounded2) {
 		velocity.y -= 15.8f * deltaTime;
 		velocity.x *= 0.95f;
 		velocity.z *= 0.95f;
@@ -70,24 +90,10 @@ void Player::update(float deltaTime, Input* input, TerrainManipulation* terrain)
 		position.z + velocity.z * deltaTime
 	};
 
-	bool newPosOnTerrain = terrain->isOnTerrain(newPos.x, newPos.z);
-	float newTerrainHeight = newPosOnTerrain ? terrain->getHeight(newPos.x, newPos.z) : -100.f;
-	float groundLevel = newTerrainHeight + camEyeHeight;
-
-	if (newPosOnTerrain && newPos.y < groundLevel) {
-		XMFLOAT3 normal = terrain->getNormal(newPos.x, newPos.z);
-		XMVECTOR N = XMLoadFloat3(&normal);
-		XMVECTOR vel = XMLoadFloat3(&velocity);
-		XMVECTOR intoTerrain = XMVectorScale(N, XMVectorGetX(XMVector3Dot(vel, N)));
-		XMVECTOR slideVel = XMVectorSubtract(vel, intoTerrain);
-		XMFLOAT3 sv;
-		XMStoreFloat3(&sv, slideVel);
-		newPos.x = position.x + sv.x * deltaTime;
-		newPos.z = position.z + sv.z * deltaTime;
-		newPos.y = groundLevel;
-		velocity.y = 0.0f;
-		isJumping = false;
-		XMStoreFloat3(&velocity, slideVel);
+	if (terrain->collidesWall(newPos.x, newPos.z)) {
+		// Handle the collision here, e.g., stop movement or adjust the position
+		// For now, we stop the movement if there's a collision
+		newPos = position;
 	}
 
 	setPosition(newPos.x, newPos.y, newPos.z);

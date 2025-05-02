@@ -71,11 +71,19 @@ private:
 		XMFLOAT4 directionalColour;
 	};
 
+	struct SonarBufferType {
+		XMFLOAT3 sonarOrigin;
+		float sonarRadius;
+		bool sonarActive;
+		XMFLOAT3 padding;
+	};
+
 	unique_ptr<VoronoiIslands> voronoiIslands;
 
 	ID3D11Buffer* matrixBuffer;
 	ID3D11Buffer* lightBuffer;
 	ID3D11Buffer* cameraBuffer;
+	ID3D11Buffer* sonarBuffer;
 
 	ID3D11SamplerState* terrainSampleState;
 	ID3D11SamplerState* textureSamplerState;
@@ -87,6 +95,10 @@ private:
 
 	const vector<VoronoiIslands::Island>* m_islands = nullptr;
 	float m_regionSize = 0.0f;
+
+	const vector<VoronoiIslands::Wall>* m_walls = nullptr;
+	vector<pair<XMFLOAT3, XMFLOAT3>> m_bridges; // start , end
+	float m_bridgeWidth = 2.0f;
 
 	static constexpr float HEIGHT_AMPLITUDE = 1.0f;
 	static constexpr float HEIGHT_FREQ = 0.1f;
@@ -106,9 +118,35 @@ public:
 	float getHeight(float x, float z) const;
 	bool isOnTerrain(float x, float z) const;
 	XMFLOAT3 getNormal(float x, float z) const;
+	const vector<VoronoiIslands::Wall>& getWalls() const {
+		return *m_walls;  // Returns a reference to the vector of walls
+	}
+	const vector<pair<XMFLOAT3, XMFLOAT3>>& getBridges() const {
+		return m_bridges;  // Returns a reference to the vector of bridge pairs
+	}
 
 	void setIslands(const vector<VoronoiIslands::Island>& islands, float regionSize);
 
+	void setWalls(const vector<VoronoiIslands::Wall>& walls) {
+		m_walls = &walls;
+	}
+	void setBridges(const vector<VoronoiIslands::Bridge>& bridges,
+		const vector<VoronoiIslands::Island>& islands)
+	{
+		m_bridges.clear();
+		for (auto& b : bridges) {
+			m_bridges.emplace_back(
+				islands[b.islandA].position,
+				islands[b.islandB].position
+			);
+		}
+	}
 
-	void setShaderParameters(ID3D11DeviceContext* deviceContext, const XMMATRIX& world, const XMMATRIX& view, const XMMATRIX& projection, ID3D11ShaderResourceView* terrain, ID3D11ShaderResourceView* texture_height, ID3D11ShaderResourceView* texture_colour, ID3D11ShaderResourceView* texture_colour1, ID3D11ShaderResourceView* depth1, ID3D11ShaderResourceView* depth2, Camera* camera, Light* light, Light* directionalLight, SceneData* sceneData);
+	bool collidesWall(float x, float z) const;
+	bool onBridge(float x, float z) const;
+
+
+	void setShaderParameters(ID3D11DeviceContext* deviceContext, const XMMATRIX& world, const XMMATRIX& view, const XMMATRIX& projection,
+		bool sonarActive, XMFLOAT3 sonarOrigin, float sonarRadius,
+		ID3D11ShaderResourceView* terrain, ID3D11ShaderResourceView* texture_height, ID3D11ShaderResourceView* texture_colour, ID3D11ShaderResourceView* texture_colour1, ID3D11ShaderResourceView* depth1, ID3D11ShaderResourceView* depth2, Camera* camera, Light* light, Light* directionalLight, SceneData* sceneData);
 };
