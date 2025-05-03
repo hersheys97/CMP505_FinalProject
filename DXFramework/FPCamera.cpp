@@ -147,3 +147,29 @@ void FPCamera::setLookAt(float targetX, float targetY, float targetZ)
 	// Update camera vectors
 	update();
 }
+
+XMFLOAT3 FPCamera::getForward() const {
+	// Get rotation from base class using const-correct method
+	XMFLOAT3 rot = getRotation();
+
+	// Calculate forward vector from rotation
+	float pitch = XMConvertToRadians(rot.x);
+	float yaw = XMConvertToRadians(rot.y);
+
+	XMFLOAT3 forward;
+	forward.x = sinf(yaw) * cosf(pitch);
+	forward.y = -sinf(pitch);  // Negative because in DirectX, positive pitch looks down
+	forward.z = cosf(yaw) * cosf(pitch);
+
+	// Normalize the vector
+	XMVECTOR forwardVec = XMLoadFloat3(&forward);
+	forwardVec = XMVector3Normalize(forwardVec);
+	XMStoreFloat3(&forward, forwardVec);
+
+	return forward;
+}
+
+XMFLOAT3 FPCamera::getUp() const {
+	// Simple world up vector since we don't have roll
+	return XMFLOAT3(0.0f, 1.0f, 0.0f);
+}

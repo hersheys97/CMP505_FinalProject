@@ -24,6 +24,8 @@ public:
 
 	void move(float dt);	///< Move camera, handles basic camera movement
 	void setLookAt(float targetX, float targetY, float targetZ);
+	XMFLOAT3 getForward() const;
+	XMFLOAT3 getUp() const;
 
 private:
 	Input* input;

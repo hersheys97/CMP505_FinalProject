@@ -126,23 +126,6 @@ private:
 	FMODAudioSystem audioSystem;
 	bool startedBGM = false;
 
-	/*FMOD::Studio::System* studioSystem = nullptr;
-
-	FMOD::DSP* bgmLowpass = nullptr;
-	FMOD::ChannelGroup* bgmChannelGroup = nullptr;
-
-	FMOD::Studio::EventInstance* bgm1Instance = nullptr;
-	FMOD::Studio::EventInstance* heavyWhisperInstance = nullptr;
-	FMOD::Studio::EventInstance* girlWhisperInstance = nullptr;
-
-	bool bgmStarted = false;
-	bool bgmDimmed = false;
-	float bgmTargetVolume = 1.0f;
-	float bgmRestoreTimer = 0.0f;
-	const float echoEffectDuration = 3.0f;
-	bool ghostAudioPlaying = false;*/
-
-
 	// Echo Pulse
 	bool sonarActive = false;
 	float sonarTime = 0.0f;
@@ -154,11 +137,16 @@ private:
 	XMFLOAT3 fireflyPosition = { 0.f, 0.f, 0.f };
 	XMFLOAT3 fireflyVelocity = { 0.f, 0.f, 0.f };
 	float fireflyLifetime = 0.f;
-	const float fireflyMaxLifetime = 10.f;
+	const float fireflyMaxLifetime = 15.f;
 	bool fireflyActive = false;
 	int currentIslandIndex = -1;
 	float directionChangeTimer = 0.0f;
-	float nextDirectionChangeTime = 1.0f; // Initial interval
+	float nextDirectionChangeTime = 7.0;
+
+	XMFLOAT3 sonarTargetPosition = { 0.f, 0.f, 0.f };
+	float sonarResponseTimer = 0.f;
+	const float sonarResponseDuration = 5.0f; // 5 secs
+	bool respondingToSonar = false;
 
 	// Screen dimensions
 	float SCREEN_WIDTH = 0.f;

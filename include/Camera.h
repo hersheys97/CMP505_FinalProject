@@ -36,7 +36,7 @@ public:
 	void setRotation(float lx, float ly, float lz);		///< Set camera rotation directly
 
 	XMFLOAT3 getPosition();		///< Get camera's current position
-	XMFLOAT3 getRotation();		///< Get camera's current rotation
+	XMFLOAT3 getRotation() const;		///< Get camera's current rotation
 
 	void update();				///< Update camera, recalculates view matrix based on rotation
 	XMMATRIX getViewMatrix();	///< Get current view matrix of camera
@@ -55,6 +55,8 @@ public:
 	void strafeRight();			///< default function for moving right
 	void strafeLeft();			///< default function for moving left
 	void turn(int x, int y);	///< default function for turning in both x/y axis
+	XMFLOAT3 getForward() const;
+	XMFLOAT3 getUp() const;
 
 private:
 	XMFLOAT3 position;		///< float3 for position

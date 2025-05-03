@@ -160,11 +160,22 @@ void App1::renderPlayer() {
 		camera->setRotation(player->getRotation().x, player->getRotation().y, 0.0f);
 		camera->update();
 
+		// Update audio listener position
+		XMFLOAT3 camForward = camera->getForward();
+		XMFLOAT3 camUp = camera->getUp();
+		audioSystem.updateListenerPosition(camPos, camForward, camUp);
+
+		audioSystem.playFireflyWhisper(fireflyPosition);
+
 		if (input->isKeyDown('C') && !sonarActive) {
 			sonarActive = true;
 			sceneData->tessMesh = true;
 			sonarTime = 0.0f;
 			sonarOrigin = player->getPosition();
+			sonarTargetPosition = sonarOrigin;
+			respondingToSonar = true;
+			sonarResponseTimer = 0.0f;
+
 			audioSystem.playOneShot("event:/EchoPulse");
 			audioSystem.dimBGM(audioSystem.ECHO_EFFECT_DURATION);
 		}
@@ -189,81 +200,133 @@ void App1::renderPlayer() {
 
 void App1::renderGhost(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix) {
 	float deltaTime = timer->getTime();
-	fireflyLifetime -= deltaTime;
+
+	// Only decrement lifetime if not responding to sonar
+	if (!respondingToSonar) {
+		fireflyLifetime -= deltaTime;
+	}
 
 	if (!fireflyActive || fireflyLifetime <= 0.f) {
-		const auto& islands = voronoiIslands->GetIslands();
-		if (!islands.empty()) {
-			currentIslandIndex = rand() % islands.size();
-			const auto& island = islands[currentIslandIndex];
+		if (audioSystem.isWhisperPlaying()) audioSystem.stopFireflyWhisper();
 
-			fireflyPosition = XMFLOAT3{ island.position.x + (rand() % 10 - 5),island.position.y + 3.f,island.position.z + (rand() % 10 - 5) };
-			fireflyVelocity = XMFLOAT3{ randomFloat(-1.f, 1.f) * 2.f,0.f,randomFloat(-1.f, 1.f) * 2.f };
-			fireflyLifetime = fireflyMaxLifetime;
-			fireflyActive = true;
+		// Don't respawn if we're in the middle of a sonar response
+		if (!respondingToSonar) {
+			const auto& islands = voronoiIslands->GetIslands();
+			if (!islands.empty()) {
+				currentIslandIndex = rand() % islands.size();
+				const auto& island = islands[currentIslandIndex];
 
-			audioSystem.playFireflyWhisper(fireflyPosition);
+				// Use sonarTargetPosition as spawn location if available, otherwise random island position
+				fireflyPosition = (sonarTargetPosition.x != 0 || sonarTargetPosition.y != 0 || sonarTargetPosition.z != 0) ?
+					sonarTargetPosition :
+					XMFLOAT3{ island.position.x + (rand() % 10 - 5), island.position.y + 3.f, island.position.z + (rand() % 10 - 5) };
 
-			// Reset direction change timing
-			directionChangeTimer = 0.0f;
-			nextDirectionChangeTime = randomFloat(1.0f, 2.0f);
+				fireflyVelocity = XMFLOAT3{ randomFloat(-1.f, 1.f) * 2.f, 0.f, randomFloat(-1.f, 1.f) * 2.f };
+				fireflyLifetime = fireflyMaxLifetime;
+				fireflyActive = true;
+
+				// Reset direction change timing
+				directionChangeTimer = 0.0f;
+				nextDirectionChangeTime = randomFloat(1.0f, 2.0f);
+			}
 		}
 	}
 	else {
-		const auto& island = voronoiIslands->GetIslands()[currentIslandIndex];
-		float halfSize = 25.0f;
+		if (respondingToSonar) {
+			sonarResponseTimer += deltaTime;
 
-		float minX = island.position.x - halfSize;
-		float maxX = island.position.x + halfSize;
-		float minZ = island.position.z - halfSize;
-		float maxZ = island.position.z + halfSize;
+			// Calculate remaining distance and time
+			XMVECTOR targetPos = XMLoadFloat3(&sonarTargetPosition);
+			XMVECTOR currentPos = XMLoadFloat3(&fireflyPosition);
+			XMVECTOR toTarget = XMVectorSubtract(targetPos, currentPos);
+			float distance = XMVectorGetX(XMVector3Length(toTarget));
+			float remainingTime = sonarResponseDuration - sonarResponseTimer;
 
-		// If firefly is near edge, bounce/change direction
-		bool bounced = false;
+			// Calculate required speed to reach target in remaining time
+			float requiredSpeed = (remainingTime > 0) ? (distance / remainingTime) : 0.f;
 
-		if (fireflyPosition.x < minX || fireflyPosition.x > maxX) {
-			fireflyVelocity.x *= -1.f; // Reverse X direction
-			fireflyPosition.x = max(minX, min(maxX, fireflyPosition.x)); // Clamp
-			bounced = true;
+			// If we're very close or time is up, handle arrival
+			if (distance < 0.1f || remainingTime <= 0) {
+				fireflyPosition = sonarTargetPosition;
+				respondingToSonar = false;
+
+				// Reset lifetime and mark this as the new spawn location
+				fireflyLifetime = fireflyMaxLifetime;
+
+				// Reset wandering behavior
+				directionChangeTimer = 0.0f;
+				nextDirectionChangeTime = randomFloat(1.0f, 2.0f);
+			}
+			else {
+				// Move toward target at exactly the required speed
+				XMVECTOR direction = XMVector3Normalize(toTarget);
+				XMStoreFloat3(&fireflyVelocity, XMVectorScale(direction, requiredSpeed));
+			}
 		}
-		if (fireflyPosition.z < minZ || fireflyPosition.z > maxZ) {
-			fireflyVelocity.z *= -1.f; // Reverse Z direction
-			fireflyPosition.z = max(minZ, min(maxZ, fireflyPosition.z)); // Clamp
-			bounced = true;
-		}
+		else {
+			// Normal wandering behavior
+			const auto& island = voronoiIslands->GetIslands()[currentIslandIndex];
+			float halfSize = 25.0f;
 
-		// Optionally refresh direction timer after bounce
-		if (bounced) {
-			directionChangeTimer = 0.0f;
-			nextDirectionChangeTime = randomFloat(1.0f, 2.0f);
+			float minX = island.position.x - halfSize;
+			float maxX = island.position.x + halfSize;
+			float minZ = island.position.z - halfSize;
+			float maxZ = island.position.z + halfSize;
+
+			// If firefly is near edge, bounce/change direction
+			bool bounced = false;
+
+			if (fireflyPosition.x < minX || fireflyPosition.x > maxX) {
+				fireflyVelocity.x *= -1.f;
+				fireflyPosition.x = max(minX, min(maxX, fireflyPosition.x));
+				bounced = true;
+			}
+			if (fireflyPosition.z < minZ || fireflyPosition.z > maxZ) {
+				fireflyVelocity.z *= -1.f;
+				fireflyPosition.z = max(minZ, min(maxZ, fireflyPosition.z));
+				bounced = true;
+			}
+
+			// Optionally refresh direction timer after bounce
+			if (bounced) {
+				directionChangeTimer = 0.0f;
+				nextDirectionChangeTime = randomFloat(1.0f, 2.0f);
+			}
+
+			// Randomly change direction every few seconds
+			directionChangeTimer += deltaTime;
+			if (directionChangeTimer >= nextDirectionChangeTime) {
+				fireflyVelocity = XMFLOAT3{ randomFloat(5.f, 7.f) * 2.f, 0.f, randomFloat(5.f, 7.f) * 2.f };
+				directionChangeTimer = 0.0f;
+				nextDirectionChangeTime = randomFloat(1.0f, 2.0f);
+			}
 		}
 
 		// Update position
 		fireflyPosition.x += fireflyVelocity.x * deltaTime;
 		fireflyPosition.z += fireflyVelocity.z * deltaTime;
 
-		// Randomly change direction every few seconds
-		directionChangeTimer += deltaTime;
-		if (directionChangeTimer >= nextDirectionChangeTime) {
-			fireflyVelocity = XMFLOAT3{ randomFloat(5.f, 7.f) * 2.f,0.f,randomFloat(5.f, 7.f) * 2.f };
-			directionChangeTimer = 0.0f;
-			nextDirectionChangeTime = randomFloat(1.0f, 2.0f);
-		}
-
 		audioSystem.updateFireflyPosition(fireflyPosition);
 	}
 
-	if (!fireflyActive && audioSystem.isWhisperPlaying()) audioSystem.stopFireflyWhisper();
+	if (!fireflyActive && audioSystem.isWhisperPlaying()) {
+		audioSystem.stopFireflyWhisper();
+	}
 
 	if (fireflyActive) {
 		XMMATRIX fireflyWorldMatrix = XMMatrixTranslation(fireflyPosition.x, fireflyPosition.y, fireflyPosition.z);
 
 		firefly->sendData(renderer->getDeviceContext());
-		fireflyShader->setShaderParameters(renderer->getDeviceContext(), fireflyWorldMatrix, viewMatrix, projectionMatrix, textureMgr->getTexture(L"firefly"), camera, spotLight, directionalLight, sceneData);
+		fireflyShader->setShaderParameters(renderer->getDeviceContext(), fireflyWorldMatrix, viewMatrix, projectionMatrix,
+			textureMgr->getTexture(L"firefly"), camera, spotLight, directionalLight, sceneData);
 		fireflyShader->render(renderer->getDeviceContext(), firefly->getIndexCount());
+
+		// Update audio effects
+		audioSystem.updateFireflyPosition(fireflyPosition);
+		audioSystem.updateFireflyWhisperVolume(camera->getPosition());
+		audioSystem.updateGhostEffects(deltaTime, camera->getPosition());
 	}
 }
-
 
 // Shadow Depth Map
 // Two types of lights are used for shadow depth mapping: a directional light and a spotlight. The shadow map is set up for rendering by binding the depth buffer and disabling colour rendering. Shadows are created by rendering the scene from the perspective of each light, capturing depth information. This data is then used in the final render to produce shadows. The position is calculated and updated in the lookAt function, which is used to generate the orthographic matrix. After generating the view matrix for both lights and rendering the meshes with their respective shaders, the render target is reset to the back buffer, and the viewport is restored.
