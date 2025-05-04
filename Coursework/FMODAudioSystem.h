@@ -2,6 +2,7 @@
 #include "DXF.h"
 #include <DirectXMath.h>
 #include <algorithm>
+#include <random>
 
 #include "fmod_studio.hpp"
 #include "fmod.hpp"
@@ -83,12 +84,12 @@ private:
 
 	static constexpr float BGM_DIM_VOLUME = 0.3f;
 
-	static constexpr float MIN_WHISPER_VOLUME = 0.2f;
+	static constexpr float MIN_WHISPER_VOLUME = 0.1f;
 	static constexpr float MAX_WHISPER_VOLUME = 1.f;
 
-	static constexpr float WHISPER_CLOSE_RANGE = 15.0f;  // Very close range (intimate)
-	static constexpr float WHISPER_MID_RANGE = 30.0f;    // Medium range
-	static constexpr float WHISPER_FAR_RANGE = 40.0f;    // Far range
+	static constexpr float WHISPER_CLOSE_RANGE = 20.0f;  // Very close range (intimate)
+	static constexpr float WHISPER_MID_RANGE = 35.0f;    // Medium range
+	static constexpr float WHISPER_FAR_RANGE = 45.0f;    // Far range
 	static constexpr float WHISPER_FADE_RANGE = 50.0f;   // Complete fade-out beyond this
 
 	static constexpr float WHISPER_CLOSE_VOLUME = 1.0f;  // Full volume when very close
@@ -99,6 +100,10 @@ private:
 	static constexpr float AMBIENCE_MIN_DISTANCE = 55.0f;
 	static constexpr float AMBIENCE_MAX_DISTANCE = 70.0f;
 	static constexpr float AMBIENCE_CUTOFF_DISTANCE = 60.0f;
+
+	static constexpr float BGM_DUCKING_RATIO = 0.7f; // 30% volume reduction when ducking
+	static constexpr float AMBIENCE_LFO_RATE = 0.2f; // Slow modulation for natural feel
+	static constexpr float SPATIAL_BLEND_FACTOR = 0.9f; // Emphasize 3D positioning
 
 	static constexpr float GHOST_EFFECT_INTERVAL = 1.5f;
 };

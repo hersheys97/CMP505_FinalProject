@@ -47,7 +47,7 @@ bool FMODAudioSystem::init() {
 	}
 
 	// 3. Load banks
-	const std::vector<std::string> bankPaths = {
+	const vector<string> bankPaths = {
 		"../FMOD Project/CMP505_Audio/Build/Desktop/CMP505.bank",
 		"../FMOD Project/CMP505_Audio/Build/Desktop/CMP505.strings.bank"
 	};
@@ -164,24 +164,32 @@ void FMODAudioSystem::playOneShot(const string& eventPath) {
 void FMODAudioSystem::dimBGM(float duration, float targetVolume) {
 	if (!bgm.started || !events.bgm1) return;
 
-	// Only modify BGM volume, don't affect whispers
-	bgm.targetVolume = targetVolume;
+	// Use logarithmic scaling for perceived loudness
+	bgm.targetVolume = log10(1 + 9 * targetVolume);
 	bgm.restoreTimer = duration;
 	bgm.dimmed = true;
 
-	// Optional: Add a subtle high-pass filter instead of low-pass
 	if (!bgm.lowpass) {
 		FMOD::System* coreSystem = nullptr;
 		studioSystem->getCoreSystem(&coreSystem);
 		if (!coreSystem) return;
 
-		coreSystem->createDSPByType(FMOD_DSP_TYPE_HIGHPASS, &bgm.lowpass);
+		// Use multi-effect processing for natural ducking
+		coreSystem->createDSPByType(FMOD_DSP_TYPE_THREE_EQ, &bgm.lowpass);
 		if (bgm.lowpass) {
-			bgm.lowpass->setParameterFloat(FMOD_DSP_HIGHPASS_CUTOFF, 500.0f);
+			// Reduce mid/high frequencies instead of harsh cutoff
+			bgm.lowpass->setParameterFloat(FMOD_DSP_THREE_EQ_MIDGAIN, -6.0f);
+			bgm.lowpass->setParameterFloat(FMOD_DSP_THREE_EQ_HIGHGAIN, -3.0f);
 
 			events.bgm1->getChannelGroup(&bgm.channelGroup);
 			if (bgm.channelGroup) {
 				bgm.channelGroup->addDSP(0, bgm.lowpass);
+
+				// Add subtle compression to maintain perceived presence
+				FMOD::DSP* compressor;
+				coreSystem->createDSPByType(FMOD_DSP_TYPE_COMPRESSOR, &compressor);
+				compressor->setParameterFloat(FMOD_DSP_COMPRESSOR_THRESHOLD, -15.0f);
+				bgm.channelGroup->addDSP(1, compressor);
 			}
 		}
 	}
@@ -287,120 +295,67 @@ void FMODAudioSystem::updateListenerPosition(const XMFLOAT3& position, const XMF
 void FMODAudioSystem::updateGhostWhisperVolume(const XMFLOAT3& listenerPosition) {
 	if (!events.girlWhisper) return;
 
-	// Get current firefly position and velocity
-	FMOD_3D_ATTRIBUTES fireflyAttributes;
-	events.girlWhisper->get3DAttributes(&fireflyAttributes);
+	FMOD_3D_ATTRIBUTES ghostAttributes;
+	events.girlWhisper->get3DAttributes(&ghostAttributes);
 
-	// Calculate distance and direction vector between listener and firefly
+	// Calculate distance and direction using spherical interpolation
 	XMVECTOR listenerPos = XMVectorSet(listenerPosition.x, listenerPosition.y, listenerPosition.z, 0.0f);
-	XMVECTOR fireflyPos = XMVectorSet(fireflyAttributes.position.x, fireflyAttributes.position.y, fireflyAttributes.position.z, 0.0f);
-	XMVECTOR toListener = XMVectorSubtract(listenerPos, fireflyPos);
+	XMVECTOR ghostPos = XMVectorSet(ghostAttributes.position.x, ghostAttributes.position.y, ghostAttributes.position.z, 0.0f);
+	XMVECTOR toListener = XMVectorSubtract(listenerPos, ghostPos);
 	float distance = XMVectorGetX(XMVector3Length(toListener));
-	XMVECTOR direction = XMVector3Normalize(toListener);
 
-	// Calculate relative velocity for Doppler effect
-	XMVECTOR fireflyVel = XMVectorSet(fireflyAttributes.velocity.x, fireflyAttributes.velocity.y, fireflyAttributes.velocity.z, 0.0f);
-	float relativeVelocity = XMVectorGetX(XMVector3Dot(fireflyVel, direction));
+	// Logarithmic distance attenuation (more natural perception)
+	float volume = 1.0f - (log10(1 + distance) / log10(1 + WHISPER_FADE_RANGE));
+	volume = clamp(volume * (1.0f + ghostEffectIntensity * 0.3f), WHISPER_MIN_VOLUME, 1.2f);
 
-	// Smooth volume attenuation based on distance
-	float volume = WHISPER_MIN_VOLUME;
-	if (distance < WHISPER_CLOSE_RANGE) {
-		// Very close - full volume with slight boost when moving towards player
-		float closeness = 1.0f - (distance / WHISPER_CLOSE_RANGE);
-		volume = WHISPER_CLOSE_VOLUME + closeness * 0.2f; // Slight boost when very close
-	}
-	else if (distance < WHISPER_MID_RANGE) {
-		// Close-mid range - smooth transition
-		float t = (distance - WHISPER_CLOSE_RANGE) / (WHISPER_MID_RANGE - WHISPER_CLOSE_RANGE);
-		volume = WHISPER_CLOSE_VOLUME + t * (WHISPER_MID_VOLUME - WHISPER_CLOSE_VOLUME);
-	}
-	else if (distance < WHISPER_FAR_RANGE) {
-		// Mid-far range
-		float t = (distance - WHISPER_MID_RANGE) / (WHISPER_FAR_RANGE - WHISPER_MID_RANGE);
-		volume = WHISPER_MID_VOLUME + t * (WHISPER_FAR_VOLUME - WHISPER_MID_VOLUME);
-	}
-	else if (distance < WHISPER_FADE_RANGE) {
-		// Far-fade range
-		float t = (distance - WHISPER_FAR_RANGE) / (WHISPER_FADE_RANGE - WHISPER_FAR_RANGE);
-		volume = WHISPER_FAR_VOLUME + t * (WHISPER_MIN_VOLUME - WHISPER_FAR_VOLUME);
-	}
-
-	// Apply intensity modulation
-	volume *= (1.0f + ghostEffectIntensity * 0.5f);
-	volume = clamp(volume, WHISPER_MIN_VOLUME, WHISPER_CLOSE_VOLUME * 1.2f);
-
-	// Apply volume
-	events.girlWhisper->setVolume(volume);
-
-	// Update 3D effects through channel group
-	FMOD::ChannelGroup* channelGroup = nullptr;
+	// Get the channel group for additional 3D control
+	FMOD::ChannelGroup* channelGroup;
 	events.girlWhisper->getChannelGroup(&channelGroup);
-	if (channelGroup) {
-		// Calculate normalized direction for cone orientation
-		XMFLOAT3 dir;
-		XMStoreFloat3(&dir, direction);
-		FMOD_VECTOR forward = { dir.x, dir.y, dir.z };
-		channelGroup->set3DConeOrientation(&forward);
 
-		// Dynamic cone settings - tighter when closer
-		float coneInsideAngle, coneOutsideAngle;
+	if (channelGroup) {
+		// Proper 3D spatialization using available FMOD API
+		FMOD_VECTOR dir;
+		XMStoreFloat3(reinterpret_cast<XMFLOAT3*>(&dir), XMVector3Normalize(toListener));
+
+		// Set 3D cone orientation (alternative to pan level)
+		channelGroup->set3DConeOrientation(&dir);
+
+		// Dynamic cone settings based on distance
+		float coneInside, coneOutside;
 		if (distance < WHISPER_CLOSE_RANGE) {
-			coneInsideAngle = 45.0f;
-			coneOutsideAngle = 90.0f;
+			coneInside = 30.0f;
+			coneOutside = 90.0f;
 		}
 		else if (distance < WHISPER_MID_RANGE) {
-			coneInsideAngle = 60.0f;
-			coneOutsideAngle = 120.0f;
+			coneInside = 60.0f;
+			coneOutside = 150.0f;
 		}
 		else {
-			coneInsideAngle = 90.0f;
-			coneOutsideAngle = 180.0f;
+			coneInside = 90.0f;
+			coneOutside = 180.0f;
 		}
-		channelGroup->set3DConeSettings(coneInsideAngle, coneOutsideAngle, 0.3f);
+		channelGroup->set3DConeSettings(coneInside, coneOutside, 0.3f);
 
-		// Doppler effect - more pronounced when firefly is moving towards/away from player
-		float dopplerLevel = 0.0f;
-		if (fabs(relativeVelocity) > 0.1f) {
-			// Scale Doppler effect based on relative velocity (0.5 to 2.0)
-			dopplerLevel = clamp(1.5f + relativeVelocity * 0.5f, 0.5f, 2.0f);
-		}
-		channelGroup->set3DDopplerLevel(dopplerLevel);
+		// Smooth Doppler effect
+		static float lastRelativeVelocity = 0.0f;
+		XMVECTOR ghostVel = XMVectorSet(ghostAttributes.velocity.x, ghostAttributes.velocity.y, ghostAttributes.velocity.z, 0.0f);
+		float relativeVelocity = XMVectorGetX(XMVector3Dot(ghostVel, XMVector3Normalize(toListener)));
 
-		// Pitch variation based on relative movement
-		float pitch = 1.0f;
-		if (relativeVelocity > 0.5f) {
-			// Firefly moving towards player - higher pitch
-			pitch = clamp(1.0f + relativeVelocity * 0.1f, 1.0f, 1.2f);
-		}
-		else if (relativeVelocity < -0.5f) {
-			// Firefly moving away - lower pitch
-			pitch = clamp(1.0f + relativeVelocity * 0.05f, 0.9f, 1.0f);
-		}
-		channelGroup->setPitch(pitch);
+		// Low-pass filter for velocity changes
+		float smoothedVelocity = 0.8f * lastRelativeVelocity + 0.2f * relativeVelocity;
+		lastRelativeVelocity = smoothedVelocity;
+
+		// Non-linear Doppler scaling
+		float dopplerLevel = 1.0f + 0.3f * tanh(smoothedVelocity / 5.0f);
+		channelGroup->set3DDopplerLevel(clamp(dopplerLevel, 0.8f, 1.2f));
+
+		// Set spread for better spatialization (alternative to pan level)
+		float spread = 180.0f * (1.0f - volume); // Wider spread when quieter
+		channelGroup->set3DSpread(spread);
 	}
 
-	// Debug output - D3D11 text rendering
-
-	char debugBuffer[512];
-	sprintf_s(debugBuffer,
-		"Firefly Audio Debug:\n"
-		"Distance: %.2f units\n"
-		"Firefly Pos: (%.2f, %.2f, %.2f)\n"
-		"Volume: %.2f%%\n"
-		"Relative Velocity: %.2f units/sec\n"
-		"Distance Range: %s\n\n",
-		distance,
-		fireflyAttributes.position.x, fireflyAttributes.position.y, fireflyAttributes.position.z,
-		volume * 100.0f,
-		relativeVelocity,
-
-		(distance < WHISPER_CLOSE_RANGE) ? "VERY CLOSE (<10)" :
-		(distance < WHISPER_MID_RANGE) ? "CLOSE (10-20)" :
-		(distance < WHISPER_FAR_RANGE) ? "MID (20-40)" :
-		(distance < WHISPER_FADE_RANGE) ? "FAR (40-50)" : "VERY FAR (>50)"
-	);
-
-	OutputDebugStringA(debugBuffer);
+	// Apply volume with perceptual loudness correction
+	events.girlWhisper->setVolume(powf(volume, 0.6f));
 }
 
 void FMODAudioSystem::updateGhostEffects(float deltaTime, const XMFLOAT3& listenerPosition) {
@@ -410,45 +365,33 @@ void FMODAudioSystem::updateGhostEffects(float deltaTime, const XMFLOAT3& listen
 	if (ghostEffectTimer >= GHOST_EFFECT_INTERVAL) {
 		ghostEffectTimer = 0.0f;
 
-		// Get distance to ghost
 		FMOD_3D_ATTRIBUTES ghostAttrs;
 		events.girlWhisper->get3DAttributes(&ghostAttrs);
 		float distance = sqrtf(powf(listenerPosition.x - ghostAttrs.position.x, 2) +
 			powf(listenerPosition.y - ghostAttrs.position.y, 2) +
 			powf(listenerPosition.z - ghostAttrs.position.z, 2));
 
-		// More intense effects when closer
-		float proximityFactor = 1.0f - min(distance / WHISPER_FADE_RANGE, 1.0f);
+		// Use Fletcher-Munson curves for perceived loudness
+		float proximityFactor = 1.0f - min(powf(distance / WHISPER_FADE_RANGE, 0.3f), 1.0f);
 
-		// Random effects
-		if (rand() % 3 == 0) { // 33% chance per interval
-			// Pitch variation
-			float pitch = 1.0f + ((rand() % 21) - 10) * 0.02f * proximityFactor; // ±20% variation
+		if (rand() % 3 == 0) {
+			// Natural pitch variation within critical bandwidth
+			float pitch = 1.0f + ((rand() % 11) - 5) * 0.005f * proximityFactor;
 			events.girlWhisper->setPitch(pitch);
 
-			// Occasional whisper bursts when close
 			if (distance < WHISPER_CLOSE_RANGE * 1.5f) {
-				float currentVol;
-				events.girlWhisper->getVolume(&currentVol);
-				events.girlWhisper->setVolume(currentVol * 1.5f); // 50% louder burst
+				// Use transient shaping instead of volume boost
+				FMOD::ChannelGroup* cg;
+				events.girlWhisper->getChannelGroup(&cg);
+				if (cg) {
+					FMOD::System* coreSystem = nullptr;
+					FMOD::DSP* transient = nullptr;
 
-				// Add temporary reverb for creepiness
-				FMOD::System* coreSystem = nullptr;
-				studioSystem->getCoreSystem(&coreSystem);
-				if (coreSystem) {
-					FMOD::DSP* reverb;
-					coreSystem->createDSPByType(FMOD_DSP_TYPE_SFXREVERB, &reverb);
-					if (reverb) {
-						reverb->setParameterFloat(FMOD_DSP_SFXREVERB_DECAYTIME, 3.0f);
-						reverb->setParameterFloat(FMOD_DSP_SFXREVERB_DIFFUSION, 80.0f);
+					studioSystem->getCoreSystem(&coreSystem);
+					coreSystem->createDSPByType(FMOD_DSP_TYPE_TRANSCEIVER, &transient);
 
-						FMOD::ChannelGroup* cg;
-						events.girlWhisper->getChannelGroup(&cg);
-						if (cg) {
-							cg->addDSP(1, reverb);
-							// Note: In production code you'd need to track and release this DSP
-						}
-					}
+					transient->setParameterFloat(FMOD_DSP_TRANSCEIVER_GAIN, 2.0f);
+					cg->addDSP(1, transient);
 				}
 			}
 		}
@@ -480,51 +423,41 @@ void FMODAudioSystem::createIslandAmbience(const XMFLOAT3& position) {
 }
 
 void FMODAudioSystem::updateIslandAmbiences(const XMFLOAT3& listenerPosition) {
-	for (auto it = islandAmbiences.begin(); it != islandAmbiences.end(); ) {
-		if (!it->active || !it->instance) {
-			it = islandAmbiences.erase(it);
-			continue;
-		}
+	for (auto& ambience : islandAmbiences) {
+		if (!ambience.active || !ambience.instance) continue;
 
-		// Check playback state
-		FMOD_STUDIO_PLAYBACK_STATE state;
-		FMOD_RESULT result = it->instance->getPlaybackState(&state);
+		// Calculate distance with height attenuation
+		float dx = ambience.position.x - listenerPosition.x;
+		float dy = ambience.position.y * 0.3f - listenerPosition.y * 0.3f; // Reduced vertical influence
+		float dz = ambience.position.z - listenerPosition.z;
+		float distance = sqrtf(dx * dx + dz * dz + dy * dy);
 
-		if (result != FMOD_OK || state == FMOD_STUDIO_PLAYBACK_STOPPED) {
-			if (it->instance) {
-				it->instance->release();
-			}
-			it = islandAmbiences.erase(it);
-			continue;
-		}
-
-		// Calculate distance to listener
-		float dx = it->position.x - listenerPosition.x;
-		float dy = it->position.y - listenerPosition.y;
-		float dz = it->position.z - listenerPosition.z;
-		float distance = sqrtf(dx * dx + dy * dy + dz * dz);
-
-		// Completely mute if beyond cutoff distance
-		if (distance > AMBIENCE_CUTOFF_DISTANCE) {
-			it->instance->setVolume(0.0f);
-			++it;
-			continue;
-		}
-
-		// Calculate volume based on distance
-		float volume = 0.0f;
+		// Double-slope distance model
+		float volume;
 		if (distance < AMBIENCE_MIN_DISTANCE) {
-			volume = 1.0f; // Full volume within min distance
+			volume = 1.0f;
+		}
+		else if (distance < AMBIENCE_MAX_DISTANCE) {
+			float t = (distance - AMBIENCE_MIN_DISTANCE) /
+				(AMBIENCE_MAX_DISTANCE - AMBIENCE_MIN_DISTANCE);
+			volume = 1.0f - t * 0.7f; // 70% volume reduction at max distance
 		}
 		else {
-			// Linear fade between min and max distance
-			volume = 1.0f - ((distance - AMBIENCE_MIN_DISTANCE) /
-				(AMBIENCE_MAX_DISTANCE - AMBIENCE_MIN_DISTANCE));
-			volume = clamp(volume, 0.0f, 1.0f);
+			volume = 0.3f - ((distance - AMBIENCE_MAX_DISTANCE) /
+				(AMBIENCE_CUTOFF_DISTANCE - AMBIENCE_MAX_DISTANCE)) * 0.3f;
 		}
 
-		it->instance->setVolume(volume);
-		++it;
+		// Add natural-sounding random fluctuations
+		static random_device rd;
+		static mt19937 gen(rd());
+		uniform_real_distribution<float> dist(0.95f, 1.05f);
+		volume *= dist(gen);
+
+		// Apply atmospheric absorption simulation
+		float highFreqGain = 1.0f - (distance / AMBIENCE_CUTOFF_DISTANCE);
+		ambience.instance->setParameterByName("HighFreqAttenuation", highFreqGain);
+
+		ambience.instance->setVolume(clamp(volume, 0.0f, 1.0f));
 	}
 }
 
