@@ -62,12 +62,12 @@ public:
 	void playOneShot(const std::string& eventPath);
 	void dimBGM(float duration, float targetVolume = 0.3f);
 
-	void playFireflyWhisper(const XMFLOAT3& position);
-	void stopFireflyWhisper();
-	void updateFireflyPosition(const XMFLOAT3& position);
+	void playGhostWhisper(const XMFLOAT3& position);
+	void stopGhostWhisper();
+	void updateGhostPosition(const XMFLOAT3& position);
 
 	void updateListenerPosition(const XMFLOAT3& position, const XMFLOAT3& forward, const XMFLOAT3& up);
-	void updateFireflyWhisperVolume(const XMFLOAT3& listenerPosition);
+	void updateGhostWhisperVolume(const XMFLOAT3& listenerPosition);
 
 	void updateGhostEffects(float deltaTime, const XMFLOAT3& listenerPosition);
 	void setGhostEffectIntensity(float intensity);  // 0.0f to 1.0f

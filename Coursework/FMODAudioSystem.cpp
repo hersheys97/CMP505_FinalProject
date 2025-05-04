@@ -218,7 +218,7 @@ void FMODAudioSystem::release() {
 	}
 }
 
-void FMODAudioSystem::playFireflyWhisper(const XMFLOAT3& position) {
+void FMODAudioSystem::playGhostWhisper(const XMFLOAT3& position) {
 	if (!studioSystem || events.girlWhisper) return;
 
 	FMOD::Studio::EventDescription* desc = nullptr;
@@ -234,7 +234,7 @@ void FMODAudioSystem::playFireflyWhisper(const XMFLOAT3& position) {
 		attributes.up = { 0, 1, 0 };
 		events.girlWhisper->set3DAttributes(&attributes);
 
-		// Start with minimum volume - it will be updated in updateFireflyWhisperVolume
+		// Start with minimum volume - it will be updated in updateGhostWhisperVolume
 		events.girlWhisper->setVolume(0.3f);  // Start slightly louder
 		events.girlWhisper->start();
 
@@ -244,7 +244,7 @@ void FMODAudioSystem::playFireflyWhisper(const XMFLOAT3& position) {
 	}
 }
 
-void FMODAudioSystem::stopFireflyWhisper() {
+void FMODAudioSystem::stopGhostWhisper() {
 	if (events.girlWhisper) {
 		events.girlWhisper->stop(FMOD_STUDIO_STOP_ALLOWFADEOUT);
 		events.girlWhisper->release();
@@ -252,7 +252,7 @@ void FMODAudioSystem::stopFireflyWhisper() {
 	}
 }
 
-void FMODAudioSystem::updateFireflyPosition(const XMFLOAT3& position) {
+void FMODAudioSystem::updateGhostPosition(const XMFLOAT3& position) {
 	if (events.girlWhisper) {
 		FMOD_3D_ATTRIBUTES attributes = { { 0 } };
 		attributes.position = { position.x, position.y, position.z };
@@ -284,7 +284,7 @@ void FMODAudioSystem::updateListenerPosition(const XMFLOAT3& position, const XMF
 	studioSystem->setListenerAttributes(0, &attributes);
 }
 
-void FMODAudioSystem::updateFireflyWhisperVolume(const XMFLOAT3& listenerPosition) {
+void FMODAudioSystem::updateGhostWhisperVolume(const XMFLOAT3& listenerPosition) {
 	if (!events.girlWhisper) return;
 
 	// Get current firefly position and velocity

@@ -28,7 +28,7 @@ App1::App1() {
 	depthShader = nullptr;
 	waterDepthShader = nullptr;
 	terrainDepthShader = nullptr;
-	fireflyShader = nullptr;
+	ghostShader = nullptr;
 	sceneData = nullptr;
 
 	for (int i = 0; i < 2; i++) {
@@ -128,6 +128,8 @@ void App1::finalRenderToScreen() {
 	renderer->setZBuffer(true);
 }
 
+
+
 void App1::renderAudio() {
 	audioSystem.update(timer->getTime());
 
@@ -208,7 +210,7 @@ void App1::renderPlayer() {
 		XMFLOAT3 camUp = camera->getUp();
 		audioSystem.updateListenerPosition(camPos, camForward, camUp);
 
-		audioSystem.playFireflyWhisper(fireflyPosition);
+		audioSystem.playGhostWhisper(ghostPosition);
 
 		if (input->isKeyDown('C') && !sonarActive) {
 			sonarActive = true;
@@ -245,10 +247,10 @@ void App1::renderGhost(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, 
 	float deltaTime = timer->getTime();
 
 	// Only decrement lifetime if not responding to sonar
-	if (!respondingToSonar) fireflyLifetime -= deltaTime;
+	if (!respondingToSonar) ghostLifetime -= deltaTime;
 
-	if (!fireflyActive || fireflyLifetime <= 0.f) {
-		if (audioSystem.isWhisperPlaying()) audioSystem.stopFireflyWhisper();
+	if (!ghostActive || ghostLifetime <= 0.f) {
+		if (audioSystem.isWhisperPlaying()) audioSystem.stopGhostWhisper();
 
 		// Don't respawn if we're in the middle of a sonar response
 		if (!respondingToSonar) {
@@ -257,10 +259,10 @@ void App1::renderGhost(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, 
 				currentIslandIndex = rand() % islands.size();
 				const auto& island = islands[currentIslandIndex];
 
-				fireflyPosition = XMFLOAT3{ island.position.x + (rand() % 10 - 5), island.position.y + 3.f, island.position.z + (rand() % 10 - 5) };
-				fireflyVelocity = XMFLOAT3{ randomFloat(-1.f, 1.f) * 2.f, 0.f, randomFloat(-1.f, 1.f) * 2.f };
-				fireflyLifetime = fireflyMaxLifetime;
-				fireflyActive = true;
+				ghostPosition = XMFLOAT3{ island.position.x + (rand() % 10 - 5), island.position.y + 3.f, island.position.z + (rand() % 10 - 5) };
+				ghostVelocity = XMFLOAT3{ randomFloat(-1.f, 1.f) * 2.f, 0.f, randomFloat(-1.f, 1.f) * 2.f };
+				ghostLifetime = ghostMaxLifetime;
+				ghostActive = true;
 
 				// Reset direction change timing
 				directionChangeTimer = 0.0f;
@@ -274,7 +276,7 @@ void App1::renderGhost(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, 
 
 			// Calculate remaining distance and time
 			XMVECTOR targetPos = XMLoadFloat3(&sonarTargetPosition);
-			XMVECTOR currentPos = XMLoadFloat3(&fireflyPosition);
+			XMVECTOR currentPos = XMLoadFloat3(&ghostPosition);
 			XMVECTOR toTarget = XMVectorSubtract(targetPos, currentPos);
 			float distance = XMVectorGetX(XMVector3Length(toTarget));
 			float remainingTime = sonarResponseDuration - sonarResponseTimer;
@@ -284,13 +286,13 @@ void App1::renderGhost(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, 
 
 			// If we're very close or time is up, snap to target
 			if (distance < 0.1f || remainingTime <= 0) {
-				fireflyPosition = sonarTargetPosition;
+				ghostPosition = sonarTargetPosition;
 				respondingToSonar = false;
 			}
 			else {
 				// Move toward target at exactly the required speed
 				XMVECTOR direction = XMVector3Normalize(toTarget);
-				XMStoreFloat3(&fireflyVelocity, XMVectorScale(direction, requiredSpeed));
+				XMStoreFloat3(&ghostVelocity, XMVectorScale(direction, requiredSpeed));
 			}
 		}
 		else {
@@ -303,17 +305,17 @@ void App1::renderGhost(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, 
 			float minZ = island.position.z - halfSize;
 			float maxZ = island.position.z + halfSize;
 
-			// If firefly is near edge, bounce/change direction
+			// If ghost is near edge, bounce/change direction
 			bool bounced = false;
 
-			if (fireflyPosition.x < minX || fireflyPosition.x > maxX) {
-				fireflyVelocity.x *= -1.f;
-				fireflyPosition.x = max(minX, min(maxX, fireflyPosition.x));
+			if (ghostPosition.x < minX || ghostPosition.x > maxX) {
+				ghostVelocity.x *= -1.f;
+				ghostPosition.x = max(minX, min(maxX, ghostPosition.x));
 				bounced = true;
 			}
-			if (fireflyPosition.z < minZ || fireflyPosition.z > maxZ) {
-				fireflyVelocity.z *= -1.f;
-				fireflyPosition.z = max(minZ, min(maxZ, fireflyPosition.z));
+			if (ghostPosition.z < minZ || ghostPosition.z > maxZ) {
+				ghostVelocity.z *= -1.f;
+				ghostPosition.z = max(minZ, min(maxZ, ghostPosition.z));
 				bounced = true;
 			}
 
@@ -326,21 +328,21 @@ void App1::renderGhost(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, 
 			// Randomly change direction every few seconds
 			directionChangeTimer += deltaTime;
 			if (directionChangeTimer >= nextDirectionChangeTime) {
-				fireflyVelocity = XMFLOAT3{ randomFloat(5.f, 7.f) * 2.f, 0.f, randomFloat(5.f, 7.f) * 2.f };
+				ghostVelocity = XMFLOAT3{ randomFloat(5.f, 7.f) * 2.f, 0.f, randomFloat(5.f, 7.f) * 2.f };
 				directionChangeTimer = 0.0f;
 				nextDirectionChangeTime = randomFloat(1.0f, 4.0f);
 			}
 		}
 
 		// Update position
-		fireflyPosition.x += fireflyVelocity.x * deltaTime;
-		fireflyPosition.z += fireflyVelocity.z * deltaTime;
+		ghostPosition.x += ghostVelocity.x * deltaTime;
+		ghostPosition.z += ghostVelocity.z * deltaTime;
 
-		//audioSystem.updateFireflyPosition(fireflyPosition);
+		//audioSystem.updateGhostPosition(ghostPosition);
 
-		// Inside renderGhost(), after updating fireflyPosition:
+		// Inside renderGhost(), after updating ghostPosition:
 		XMFLOAT3 playerPos = player->getPosition();
-		XMVECTOR ghostPos = XMLoadFloat3(&fireflyPosition);
+		XMVECTOR ghostPos = XMLoadFloat3(&ghostPosition);
 		XMVECTOR playerPosVec = XMLoadFloat3(&playerPos);
 		XMVECTOR distanceVec = XMVector3Length(XMVectorSubtract(ghostPos, playerPosVec));
 		float distance = XMVectorGetX(distanceVec);
@@ -357,18 +359,18 @@ void App1::renderGhost(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, 
 		}
 	}
 
-	if (fireflyActive) {
+	if (ghostActive) {
 
-		XMFLOAT3 fireflyScreenPos;
-		XMVECTOR ghostPos = XMLoadFloat3(&fireflyPosition);
+		XMFLOAT3 ghostScreenPos;
+		XMVECTOR ghostPos = XMLoadFloat3(&ghostPosition);
 		XMMATRIX viewProj = viewMatrix * projectionMatrix;
 		XMVECTOR screenPos = XMVector3Project(ghostPos, 0, 0, sceneWidth, sceneHeight, 0.0f, 1.0f, projectionMatrix, viewMatrix, XMMatrixIdentity());
 
-		XMStoreFloat3(&fireflyScreenPos, screenPos);
+		XMStoreFloat3(&ghostScreenPos, screenPos);
 
 		// Normalize screen coordinates (0-1 range)
-		ghostScreenPos.x = fireflyScreenPos.x / sceneWidth;
-		ghostScreenPos.y = fireflyScreenPos.y / sceneHeight;
+		ghostScreenPos.x = ghostScreenPos.x / sceneWidth;
+		ghostScreenPos.y = ghostScreenPos.y / sceneHeight;
 
 		// Calculate distance from camera to ghost (normalized 0-1)
 		XMFLOAT3 camPos = camera->getPosition();
@@ -391,20 +393,23 @@ void App1::renderGhost(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, 
 		offsets.x = cos(offsetAngle) * offsetMagnitude;
 		offsets.y = sin(offsetAngle) * offsetMagnitude;
 
-		XMMATRIX ghostWorldMatrix = XMMatrixTranslation(fireflyPosition.x, fireflyPosition.y, fireflyPosition.z);
+		XMMATRIX ghostWorldMatrix = XMMatrixTranslation(ghostPosition.x, ghostPosition.y, ghostPosition.z);
 
 		ghost->sendData(renderer->getDeviceContext());
-		fireflyShader->setShaderParameters(renderer->getDeviceContext(), ghostWorldMatrix, viewMatrix, projectionMatrix, textureMgr->getTexture(L"firefly"), camera, spotLight, directionalLight, sceneData);
-		fireflyShader->render(renderer->getDeviceContext(), ghost->getIndexCount());
+		ghostShader->setShaderParameters(renderer->getDeviceContext(), ghostWorldMatrix, viewMatrix, projectionMatrix, textureMgr->getTexture(L"ghost"), camera, spotLight, directionalLight, sceneData);
+		ghostShader->render(renderer->getDeviceContext(), ghost->getIndexCount());
 
 		// Update audio effects
-		audioSystem.updateFireflyPosition(fireflyPosition);
-		audioSystem.updateFireflyWhisperVolume(camera->getPosition());
+		audioSystem.updateGhostPosition(ghostPosition);
+		audioSystem.updateGhostWhisperVolume(camera->getPosition());
 		audioSystem.updateGhostEffects(deltaTime, camera->getPosition());
 	}
 
-	if (!fireflyActive && audioSystem.isWhisperPlaying()) audioSystem.stopFireflyWhisper();
+	if (!ghostActive && audioSystem.isWhisperPlaying()) audioSystem.stopGhostWhisper();
 }
+
+
+
 
 // Shadow Depth Map
 // Two types of lights are used for shadow depth mapping: a directional light and a spotlight. The shadow map is set up for rendering by binding the depth buffer and disabling colour rendering. Shadows are created by rendering the scene from the perspective of each light, capturing depth information. This data is then used in the final render to produce shadows. The position is calculated and updated in the lookAt function, which is used to generate the orthographic matrix. After generating the view matrix for both lights and rendering the meshes with their respective shaders, the render target is reset to the back buffer, and the viewport is restored.
@@ -432,7 +437,7 @@ void App1::getShadowDepthMap(const XMMATRIX& worldMatrix, const XMMATRIX& viewMa
 
 		// 3. Apply Depth Shader to the meshes
 
-		// Firefly
+		// Ghost
 		XMMATRIX ghostWorldMatrix = XMMatrixTranslation(sceneData->fireflyData.objPos[0], sceneData->fireflyData.objPos[1], sceneData->fireflyData.objPos[2]) * worldMatrix;
 
 		ghost->sendData(renderer->getDeviceContext());
@@ -577,8 +582,8 @@ void App1::generatePickups(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatr
 			XMMATRIX wallWorld = XMMatrixScaling(scaleTeapot, scaleTeapot, scaleTeapot) * XMMatrixTranslation(XMVectorGetX(spawnPos), XMVectorGetY(spawnPos) + 1.f, XMVectorGetZ(spawnPos));
 
 			teapot->sendData(renderer->getDeviceContext());
-			fireflyShader->setShaderParameters(renderer->getDeviceContext(), wallWorld, viewMatrix, projectionMatrix, textureMgr->getTexture(L"teapot"), camera, spotLight, directionalLight, sceneData);
-			fireflyShader->render(renderer->getDeviceContext(), teapot->getIndexCount());
+			ghostShader->setShaderParameters(renderer->getDeviceContext(), wallWorld, viewMatrix, projectionMatrix, textureMgr->getTexture(L"teapot"), camera, spotLight, directionalLight, sceneData);
+			ghostShader->render(renderer->getDeviceContext(), teapot->getIndexCount());
 		}
 	}
 }
@@ -673,8 +678,8 @@ void App1::renderFirefly(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix
 	XMMATRIX ghostWorldMatrix = fireflyScale * fireflyTranslate * worldMatrix;
 
 	ghost->sendData(renderer->getDeviceContext());
-	fireflyShader->setShaderParameters(renderer->getDeviceContext(), ghostWorldMatrix, viewMatrix, projectionMatrix, textureMgr->getTexture(L"firefly"), camera, spotLight, directionalLight, sceneData);
-	fireflyShader->render(renderer->getDeviceContext(), ghost->getIndexCount());
+	ghostShader->setShaderParameters(renderer->getDeviceContext(), ghostWorldMatrix, viewMatrix, projectionMatrix, textureMgr->getTexture(L"ghost"), camera, spotLight, directionalLight, sceneData);
+	ghostShader->render(renderer->getDeviceContext(), ghost->getIndexCount());
 }
 
 void App1::renderWater(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix) {
@@ -767,12 +772,6 @@ void App1::gui()
 		ImGui::SliderFloat3("Direction", sceneData->shadowLightsData.lightDirections[1], -1.0f, 1.0f);
 		ImGui::ColorEdit4("Colour 4", sceneData->shadowLightsData.dirColour);
 		ImGui::SliderFloat3("Position 4", sceneData->shadowLightsData.dir_pos, -15.f, 250.0f);
-	}
-	if (ImGui::CollapsingHeader("Model Settings"))
-	{
-		ImGui::Text("Firefly");
-
-		ImGui::SliderFloat3("Firefly Position", sceneData->fireflyData.objPos, -15.f, 210.0f);
 	}
 	if (ImGui::CollapsingHeader("Water Settings"))
 	{
@@ -1000,10 +999,10 @@ void App1::initComponents() {
 	moonShader = new MoonShader(renderer->getDevice(), hwnd);
 	textureMgr->loadTexture(L"moon", L"res/moon.jpg"); // Solar System Scope. Solar System. Available at: https://www.solarsystemscope.com/textures/ (Accessed: November 27, 2024).
 
-	// Firefly
-	fireflyShader = new FireflyShader(renderer->getDevice(), hwnd);
+	// Ghost
+	ghostShader = new GhostShader(renderer->getDevice(), hwnd);
 	ghost = new AModel(renderer->getDevice(), "res/Sphere.obj"); // Falconer, Ruth (2024) ‘DX Framework for CMP301’ [My Learning Space]. Abertay University. 25 September.
-	textureMgr->loadTexture(L"firefly", L"res/yellow.jpg"); // Dent, Jason (2020) Unsplash. Available at: https://unsplash.com/photos/yellow-and-white-color-illustration-S53ekmu8KkE (Accessed: December 8, 2024).
+	textureMgr->loadTexture(L"ghost", L"res/yellow.jpg"); // Dent, Jason (2020) Unsplash. Available at: https://unsplash.com/photos/yellow-and-white-color-illustration-S53ekmu8KkE (Accessed: December 8, 2024).
 
 	// Chromatic Aberration
 	chromaticAberration = new ChromaticAberration(renderer->getDevice(), hwnd);
@@ -1054,7 +1053,7 @@ void App1::cleanup() {
 	if (depthShader) { delete depthShader; depthShader = nullptr; }
 	if (waterDepthShader) { delete waterDepthShader; waterDepthShader = nullptr; }
 	if (terrainDepthShader) { delete terrainDepthShader; terrainDepthShader = nullptr; }
-	if (fireflyShader) { delete fireflyShader; fireflyShader = nullptr; }
+	if (ghostShader) { delete ghostShader; ghostShader = nullptr; }
 	if (sceneData) { delete sceneData; sceneData = nullptr; }
 	if (player) { delete player; player = nullptr; }
 

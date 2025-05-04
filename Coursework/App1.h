@@ -11,7 +11,7 @@
 #include "Bloom.h"
 #include "ChromaticAberration.h"
 #include "DepthShader.h"
-#include "FireflyShader.h"
+#include "GhostShader.h"
 #include "WaterDepthShader.h"
 #include "TerrainDepthShader.h"
 #include "SimpleTexture.h"
@@ -114,7 +114,7 @@ private:
 
 	// Model - Ghost
 	AModel* ghost;
-	FireflyShader* fireflyShader;
+	GhostShader* ghostShader;
 
 	// Lights
 	Light* spotLight;
@@ -152,11 +152,11 @@ private:
 	float sonarMaxRadius = 80.0f;
 
 	// Ghost
-	XMFLOAT3 fireflyPosition = { 0.f, 0.f, 0.f };
-	XMFLOAT3 fireflyVelocity = { 0.f, 0.f, 0.f };
-	float fireflyLifetime = 0.f;
-	const float fireflyMaxLifetime = 15.f;
-	bool fireflyActive = false;
+	XMFLOAT3 ghostPosition = { 0.f, 0.f, 0.f };
+	XMFLOAT3 ghostVelocity = { 0.f, 0.f, 0.f };
+	float ghostLifetime = 0.f;
+	const float ghostMaxLifetime = 15.f;
+	bool ghostActive = false;
 	int currentIslandIndex = -1;
 	float directionChangeTimer = 0.0f;
 	float nextDirectionChangeTime = 7.0;

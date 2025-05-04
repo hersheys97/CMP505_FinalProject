@@ -90,7 +90,7 @@
     <ClCompile Include="Main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="FireflyShader.cpp">
+    <ClCompile Include="GhostShader.cpp">
       <Filter>Source Files\Mesh</Filter>
     </ClCompile>
     <ClCompile Include="MoonShader.cpp">
@@ -146,7 +146,7 @@
     <ClInclude Include="DomeShader.h">
       <Filter>Header Files\Mesh</Filter>
     </ClInclude>
-    <ClInclude Include="FireflyShader.h">
+    <ClInclude Include="GhostShader.h">
       <Filter>Header Files\Mesh</Filter>
     </ClInclude>
     <ClInclude Include="MoonShader.h">

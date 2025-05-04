@@ -171,7 +171,7 @@
     <ClCompile Include="DepthShader.cpp" />
     <ClCompile Include="DomeShader.cpp" />
     <ClCompile Include="ChromaticAberration.cpp" />
-    <ClCompile Include="FireflyShader.cpp" />
+    <ClCompile Include="GhostShader.cpp" />
     <ClCompile Include="FMODAudioSystem.cpp" />
     <ClCompile Include="Ghost.cpp" />
     <ClCompile Include="Main.cpp" />
@@ -190,7 +190,7 @@
     <ClInclude Include="depthShader.h" />
     <ClInclude Include="DomeShader.h" />
     <ClInclude Include="ChromaticAberration.h" />
-    <ClInclude Include="FireflyShader.h" />
+    <ClInclude Include="GhostShader.h" />
     <ClInclude Include="FMODAudioSystem.h" />
     <ClInclude Include="Ghost.h" />
     <ClInclude Include="MoonShader.h" />
