@@ -23,10 +23,10 @@ Player::Player() :
 	position({ 58.881f, 8.507f, 68.2f }),
 	velocity({ 0.f, 0.f, 0.f }),
 	rotation({ 0.f, 0.f, 0.f }),
-	speed(20.0f),
-	camEyeHeight(1.8f),
+	speed(40.0f),
+	camEyeHeight(3.f),
 	jumpForce(7.0f),
-	mouseSensitivity(0.5f),
+	mouseSensitivity(0.4f),
 	isJumping(false),
 	sceneData(nullptr)
 {

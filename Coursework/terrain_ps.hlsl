@@ -3,23 +3,14 @@
 /****************************************************************************************************************************/
 
 // Textures and samplers for different types of data
-Texture2D terrainHeightMap : register(t0); // Height map for the terrain
+Texture2D terrainTexture : register(t0); // Height map for the terrain
 SamplerState terrainSampler : register(s0); // Sampler for the terrain height map
 
-Texture2D textureHeightMap : register(t1); // Texture map for additional terrain details
-SamplerState textureHeightSampler : register(s1); // Sampler for the texture height map
+Texture2D depthMapSpotlight : register(t1); // Shadow depth map texture - spotlight 
+SamplerState sampleSpotlight : register(s1); // Sampler for the depth map
 
-Texture2D firstTexture : register(t2); // First texture for terrain coloring
-SamplerState firstSampler : register(s2); // Sampler for the first texture
-
-Texture2D secondTexture : register(t3); // Second texture for blending terrain colour
-SamplerState secondSampler : register(s3); // Sampler for the second texture
-
-Texture2D depthMapSpotlight : register(t4); // Shadow depth map texture - spotlight 
-SamplerState sampleSpotlight : register(s4); // Sampler for the depth map
-
-Texture2D depthMapDirectional : register(t5); // Shadow depth map texture - Directional light
-SamplerState sampleDirectional : register(s5); // Sampler for the depth map
+Texture2D depthMapDirectional : register(t2); // Shadow depth map texture - Directional light
+SamplerState sampleDirectional : register(s2); // Sampler for the depth map
 
 /****************************************************************************************************************************/
 
@@ -59,7 +50,9 @@ cbuffer SonarBuffer : register(b1)
     float3 sonarOrigin;
     float sonarRadius;
     bool sonarActive;
-    float3 padding;
+    float sonarTime;
+    float sonarDuration;
+    float padding;
 };
 
 /****************************************************************************************************************************/
@@ -76,52 +69,6 @@ struct InputType
     float3 viewVector : TEXCOORD4; // Vector from vertex to camera
     float4 lightViewPos2 : TEXCOORD5; // Position in light's view space - Direcitonal
 };
-
-
-/****************************************************************************************************************************/
-
-// Function to retrieve height data from the terrain height map
-float GetTerrainHeight(float2 uv)
-{
-    // Sample the red channel of the height map and scale the value
-    return terrainHeightMap.Sample(terrainSampler, uv).r; // * 20.0f
-}
-
-// Function to retrieve height data for soil details
-float GetSoilHeight(float2 uv)
-{
-    // Sample the red channel of the soil height map and scale it
-    return textureHeightMap.SampleLevel(textureHeightSampler, uv, 0).r; // * 5.0f
-}
-
-// Normals Calculation: Normals are derived from height differences in all four directions using texel offsets. Tangent and bitangent vectors are created from these height differences, and their cross product gives the surface normal.
-// Author = Erin Hughes
-// Function to calculate terrain normal using height differences
-float3 CalcNormal(float2 uv)
-{
-    float tw = 256.0f; // Texture width (used for offset)
-    float uvOffset = 1.f / tw; // Offset for sampling nearby heights
-    float WorldStep = 100.0f * uvOffset; // World space adjustment for offset
-
-    // Sample height in four directions to calculate slope
-    float heightN = GetTerrainHeight(uv + float2(0.0f, uvOffset)) + GetSoilHeight(uv + float2(0.0f, uvOffset));
-    float heightS = GetTerrainHeight(uv - float2(0.0f, uvOffset)) + GetSoilHeight(uv - float2(0.0f, uvOffset));
-    float heightE = GetTerrainHeight(uv + float2(uvOffset, 0.0f)) + GetSoilHeight(uv + float2(uvOffset, 0.0f));
-    float heightW = GetTerrainHeight(uv - float2(uvOffset, 0.0f)) + GetSoilHeight(uv - float2(uvOffset, 0.0f));
-    float height = GetTerrainHeight(uv) + GetSoilHeight(uv);
-
-    // Create tangents and bitangents based on slope differences
-    float3 tan1 = normalize(float3(WorldStep, heightE - height, 0.0f));
-    float3 tan2 = normalize(float3(-WorldStep, heightW - height, 0.0f));
-    float3 bi1 = normalize(float3(0.0f, heightN - height, WorldStep));
-    float3 bi2 = normalize(float3(0.0f, heightS - height, -WorldStep));
-
-    // Combine normals using cross products for smooth result
-    float3 crossProduct = cross(tan1, bi2) + cross(bi2, tan2) + cross(tan2, bi1) + cross(bi1, tan1);
-
-    // Normalize final normal and average contributions
-    return normalize(crossProduct) * 0.25f;
-}
 
 /****************************************************************************************************************************/
 
@@ -274,16 +221,8 @@ bool isInShadow(Texture2D shadowMap, float2 uv, float4 lightViewPosition, float 
 // Main Shader Function
 float4 main(InputType input) : SV_TARGET
 {
-    // Calculate height map and add terrain texture colour
-    
-    float3 heightMap = CalcNormal(input.tex);
-    float3 terrainNormal = normalize(heightMap);
-
-    float4 soilColour0 = firstTexture.Sample(firstSampler, input.tex);
-    float4 soilColour1 = secondTexture.Sample(secondSampler, input.tex);
-
-    float4 terrainColour = 0.7f * soilColour0 + 0.3f * soilColour1; // Blending the two terrain textures
-
+    float3 terrainNormal = float3(1.f, 1.f, 1.f); // Placeholder for terrain normal)
+    float4 terrainColour = terrainTexture.Sample(terrainSampler, input.tex);
     /****************************************************************************************************************************/
     
     // Calculate directional light
@@ -328,25 +267,57 @@ float4 main(InputType input) : SV_TARGET
     finalColour += specular;
     finalColour = saturate(finalColour * terrainColour);
     
-    
     /****************************************************************************************************************************/
     // Sonar wireframe overlay
-    float4 testfinal = float4(0.0f, 0.0f, 0.0f, 1.0f);
+    
+    // Sonar wireframe overlay
     if (sonarActive)
     {
         float3 toPixel = input.worldPosition - sonarOrigin;
         float dist = length(toPixel);
-    
-        // Thin ring calculation
-        float thickness = 1.0f; // Thickness of the sonar ring
-        float ring = abs(dist - sonarRadius);
-        float ringFactor = smoothstep(0.0f, thickness, thickness - ring);
-    
-        float3 ringColor = float3(1.0f, 0.3f, 0.1f); // Reddish-orange ring
-        testfinal.rgb = lerp(testfinal.rgb, ringColor, ringFactor);
+
+    // Speed control (now much faster)
+        float speedMultiplier = 5.0f;
+        float waveProgress = (sonarTime * speedMultiplier) / sonarDuration;
+
+    // 1. Stronger Reveal Area Around Player
+        float revealRadius = 60.0f;
+        float revealFactor = smoothstep(revealRadius, revealRadius - 5.0f, dist); // Wider falloff
+        finalColour.rgb += float3(0.2f, 0.6f, 1.0f) * revealFactor * 1.5f; // Brighter blue
+
+    // 2. More Visible Expanding Ring
+        float ringPosition = waveProgress * sonarRadius;
+        float ringWidth = 8.0f; // Wider ring
+        float ring = smoothstep(ringPosition - ringWidth, ringPosition, dist) *
+                (1.0 - smoothstep(ringPosition, ringPosition + ringWidth, dist));
+
+    // Increased intensity with stronger falloff
+        float ringIntensity = 2.0f - smoothstep(0.0f, sonarRadius * 0.7f, dist);
+        float3 ringColor = float3(0.3f, 1.0f, 1.0f) * ring * ringIntensity * 4.0f; // Brighter cyan
+
+    // More pronounced pulsing effect
+        float pulse = 0.7f + 0.5f * sin(sonarTime * 50.0f); // Faster, stronger pulse
+        ringColor *= pulse * 1.5f;
+
+    // Add glow effect around the ring
+        float glow = ring * 0.5f;
+        ringColor += float3(0.4f, 0.9f, 1.0f) * glow;
+
+    // Combine with final color (stronger additive blending)
+        finalColour.rgb += ringColor * 1.5f;
+
+    // 3. More Visible Fading Echo
+        if (dist < ringPosition)
+        {
+            float fade = 1.0f - (ringPosition - dist) / ringPosition;
+            float3 echoColor = float3(0.2f, 0.5f, 0.8f) * fade * 0.8f; // Brighter echo
+            finalColour.rgb += echoColor;
+        }
+
+    // Additional: Add subtle screen-wide pulse when sonar starts
+        float globalPulse = saturate(1.0 - sonarTime * 2.0);
+        finalColour.rgb += float3(0.1f, 0.3f, 0.5f) * globalPulse * 0.3f;
     }
-    else
-        return float4(1.0f, 1.0f, 1.0f, 1.0f);
     
     //Apply gamma correction
     //finalColour = pow(finalColour, 1.0f / 2.2f);
@@ -354,5 +325,5 @@ float4 main(InputType input) : SV_TARGET
     finalColour.w = 1.f; // Setting alpha
     
    // return finalColour; // pow(finalColour, 2.2f)
-    return testfinal;
+    return finalColour;
 }

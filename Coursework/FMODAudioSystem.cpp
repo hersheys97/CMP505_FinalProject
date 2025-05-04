@@ -94,7 +94,7 @@ void FMODAudioSystem::playBGM1() {
 	if (result == FMOD_OK && events.bgm1) {
 		events.bgm1->start();
 		bgm.started = true;
-		bgm.targetVolume = 0.8f;
+		bgm.targetVolume = 0.6f;
 	}
 }
 
@@ -133,7 +133,7 @@ void FMODAudioSystem::update(float deltaTime) {
 	if (bgm.dimmed) {
 		bgm.restoreTimer -= deltaTime;
 		if (bgm.restoreTimer <= 0.0f && bgm.targetVolume < 1.0f) {
-			bgm.targetVolume = 1.0f;
+			bgm.targetVolume = 0.6f;
 
 			// Remove lowpass effect
 			if (bgm.lowpass) {

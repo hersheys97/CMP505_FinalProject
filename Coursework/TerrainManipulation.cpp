@@ -247,7 +247,7 @@ XMFLOAT3 TerrainManipulation::getNormal(float x, float z) const
 }
 
 
-void TerrainManipulation::setShaderParameters(ID3D11DeviceContext* deviceContext, const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, bool sonarActive, XMFLOAT3 sonarOrigin, float sonarRadius, ID3D11ShaderResourceView* terrain, ID3D11ShaderResourceView* texture_height, ID3D11ShaderResourceView* texture_colour, ID3D11ShaderResourceView* texture_colour1, ID3D11ShaderResourceView* depth1, ID3D11ShaderResourceView* depth2, Camera* camera, Light* light, Light* directionalLight, SceneData* sceneData)
+void TerrainManipulation::setShaderParameters(ID3D11DeviceContext* deviceContext, const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, float sonarRadius, ID3D11ShaderResourceView* terrain, ID3D11ShaderResourceView* depth1, ID3D11ShaderResourceView* depth2, Camera* camera, Light* light, Light* directionalLight, SceneData* sceneData)
 {
 	HRESULT result;
 	D3D11_MAPPED_SUBRESOURCE mappedResource;
@@ -319,10 +319,12 @@ void TerrainManipulation::setShaderParameters(ID3D11DeviceContext* deviceContext
 	SonarBufferType* sonarPtr;
 	deviceContext->Map(sonarBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
 	sonarPtr = (SonarBufferType*)mappedResource.pData;
-	sonarPtr->sonarOrigin = sonarOrigin;
+	sonarPtr->sonarOrigin = sceneData->sonarData.sonarOrigin;
 	sonarPtr->sonarRadius = sonarRadius;
-	sonarPtr->sonarActive = sonarActive;
-	sonarPtr->padding = XMFLOAT3(0.f, 0.f, 0.f); // Padding to ensure the structure is 16-byte aligned
+	sonarPtr->sonarActive = sceneData->sonarData.isActive;
+	sonarPtr->sonarTime = sceneData->sonarData.sonarTime;
+	sonarPtr->sonarDuration = sceneData->sonarData.sonarDuration;
+	sonarPtr->padding = 0.f; // Padding to ensure the structure is 16-byte aligned
 	deviceContext->Unmap(sonarBuffer, 0);
 	deviceContext->PSSetConstantBuffers(1, 1, &sonarBuffer);
 
@@ -330,26 +332,14 @@ void TerrainManipulation::setShaderParameters(ID3D11DeviceContext* deviceContext
 	deviceContext->PSSetShaderResources(0, 1, &terrain); // Main height map
 	deviceContext->PSSetSamplers(0, 1, &terrainSampleState);
 
-	deviceContext->PSSetShaderResources(1, 1, &texture_height);
-	deviceContext->PSSetSamplers(1, 1, &textureSamplerState);
+	deviceContext->PSSetShaderResources(1, 1, &depth1);
+	deviceContext->PSSetSamplers(1, 1, &shadowSample1);
 
-	deviceContext->PSSetShaderResources(2, 1, &texture_colour);
-	deviceContext->PSSetSamplers(2, 1, &textureSamplerState);
-
-	deviceContext->PSSetShaderResources(3, 1, &texture_colour1);
-	deviceContext->PSSetSamplers(3, 1, &textureSamplerState);
-
-	deviceContext->PSSetShaderResources(4, 1, &depth1);
-	deviceContext->PSSetSamplers(4, 1, &shadowSample1);
-
-	deviceContext->PSSetShaderResources(5, 1, &depth2);
-	deviceContext->PSSetSamplers(5, 1, &shadowSample2);
+	deviceContext->PSSetShaderResources(2, 1, &depth2);
+	deviceContext->PSSetSamplers(2, 1, &shadowSample2);
 
 	// Domain Shader
 
 	deviceContext->DSSetShaderResources(0, 1, &terrain);
 	deviceContext->DSSetSamplers(0, 1, &terrainSampleState);
-
-	deviceContext->DSSetShaderResources(1, 1, &texture_height);
-	deviceContext->DSSetSamplers(1, 1, &textureSamplerState);
 }

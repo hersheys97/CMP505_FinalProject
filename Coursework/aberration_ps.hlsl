@@ -85,7 +85,7 @@ float4 main(InputType input) : SV_TARGET
     // Radial vignette near ghost
     float vignette = 1.0 - smoothstep(0.3, 0.7, ghostDist) * ghostDistance;
     color.rgb *= vignette;
-    color.w = 0.001f;
+    color.w = 0.0001f;
     
     return color;
 }

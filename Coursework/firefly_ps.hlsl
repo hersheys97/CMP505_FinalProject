@@ -191,7 +191,7 @@ float4 main(InputType input) : SV_TARGET
     float4 pointLight2 = CalculatePointLight(pointLight2Pos, pointLight2Radius, input.worldPosition, normalize(input.normal), pointLight2Colour);
     
     // Define an intensity scaling factor for the point lights.
-    float intensityFactor = 5.0f;
+    float intensityFactor = 8.0f;
     pointLight1 *= intensityFactor;
     pointLight2 *= intensityFactor;
     
@@ -206,24 +206,53 @@ float4 main(InputType input) : SV_TARGET
     
     /****************************************************************************************************************************/
     
+    // Create a pseudo-random color based on world position and time
+    float3 randomColor;
+    float hash = frac(sin(dot(input.worldPosition.xy + timeVal, float2(12.9898, 78.233))) * 43758.5453);
+    randomColor.r = frac(hash * 1.618033);
+    randomColor.g = frac(hash * 2.718281);
+    randomColor.b = frac(hash * 3.141592);
+    
+    // Normalize and boost the random color
+    randomColor = normalize(randomColor) * 1.5f;
+    
+    
     // Pulsating firefly effect - A sine wave, scaled and shifted to range between 0 and 1, controls the intensity of a pulsating effect. This creates a smooth, cyclic visual change over time.
     // A sine function is used to create a pulsating effect based on the time.
-    float pulsate = sin(timeVal * 2.0f * 3.14f) * 0.5f + 0.5f; // [0, 1]
+    //float pulsate = sin(timeVal * 2.0f * 3.14f) * 0.5f + 0.5f; // [0, 1]
+    
+     // Enhanced pulsating effect with multiple frequencies
+    float fastPulse = sin(timeVal * 5.0f) * 0.5f + 0.5f;
+    float slowPulse = sin(timeVal * 0.8f) * 0.5f + 0.5f;
+    float combinedPulse = fastPulse * slowPulse * 2.0f; // Combined effect
+    
+    // Add some randomness to the pulsation
+    float pulseRandomness = frac(sin(timeVal * 0.3f + dot(input.worldPosition.xy, float2(12.9898, 78.233))) * 0.5f + 0.75f);
+    float finalPulse = saturate(combinedPulse * pulseRandomness * 3.0f); // Much brighter pulses
+    
+    // Create a glowing core effect
+    float coreGlow = 1.0f - saturate(length(input.tex - 0.5f) * 2.0f);
+    coreGlow = pow(coreGlow, 4.0f) * 2.0f;
     
     /****************************************************************************************************************************/
     
     // Combine all lighting contributions into the final colour.
-    float4 finalColour = (ambientColour * textureColour) + pointLight1 + pointLight2 + (directionalLight) + (spotlight);
+    float4 finalColour = (ambientColour * textureColour) + (pointLight1 + pointLight2 + directionalLight + spotlight) * float4(randomColor, 1.0f);
     // +pointLight1Diffuse + pointLight2Diffuse;
     
     // Add specular highlights
-    finalColour += specular;
+    finalColour += specular * 2.f;
     
     // Modulate the final color with the pulsating factor
-    finalColour *= pulsate;
+    finalColour *= finalPulse;
+    finalColour.rgb += coreGlow * randomColor * finalPulse;
+    
+    // Subtle halo effect
+    float halo = 1.0f - saturate(length(input.tex - 0.5f) * 1.5f);
+    finalColour.rgb += halo * randomColor * 0.3f;
     
     // Clamp final colour
-    finalColour = saturate(finalColour * textureColour);
+    finalColour = saturate(finalColour * 1.5f);
     
     //Apply gamma correction
     //finalColour = pow(finalColour, 1.0f / 2.2f);

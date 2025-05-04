@@ -114,7 +114,7 @@ struct PlayerData {
 // Audio State structure
 struct AudioState {
 	bool bgmStarted = false;
-	float sonarMaxRadius = 80.0f;
+	float sonarMaxRadius = 100.0f;
 };
 
 // Scene Data Structure

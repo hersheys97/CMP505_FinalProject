@@ -128,9 +128,6 @@ void App1::finalRenderToScreen() {
 }
 
 
-
-
-
 void App1::renderAudio() {
 	audioSystem.update(timer->getTime());
 
@@ -143,9 +140,7 @@ void App1::renderAudio() {
 	// Update island ambiences - always pass the closest island
 	if (voronoiIslands) {
 		int closestIsland = voronoiIslands->GetClosestIslandIndex(camPos);
-		if (closestIsland >= 0) {
-			audioSystem.updateIslandAmbiences(camPos, closestIsland);
-		}
+		if (closestIsland >= 0) audioSystem.updateIslandAmbiences(camPos, closestIsland);
 	}
 }
 
@@ -183,7 +178,6 @@ void App1::renderPlayer() {
 		}
 	}
 }
-
 
 void App1::renderGhost(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix) {
 	float deltaTime = timer->getTime();
@@ -392,8 +386,6 @@ void App1::updateGhostAudio(float deltaTime) {
 }
 
 
-
-
 // Shadow Depth Map
 // Two types of lights are used for shadow depth mapping: a directional light and a spotlight. The shadow map is set up for rendering by binding the depth buffer and disabling colour rendering. Shadows are created by rendering the scene from the perspective of each light, capturing depth information. This data is then used in the final render to produce shadows. The position is calculated and updated in the lookAt function, which is used to generate the orthographic matrix. After generating the view matrix for both lights and rendering the meshes with their respective shaders, the render target is reset to the back buffer, and the viewport is restored.
 
@@ -429,7 +421,7 @@ void App1::getShadowDepthMap(const XMMATRIX& worldMatrix, const XMMATRIX& viewMa
 
 		// Terrain - own vertex shader needed to calculate displacements to cast shows correclty on it
 		topTerrain->sendData(renderer->getDeviceContext(), D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
-		terrainDepthShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, viewMatrix, projectionMatrix, textureMgr->getTexture(L"terrain_heightmapCUT"), textureMgr->getTexture(L"colour_1_heightCUT"), camera);
+		terrainDepthShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, viewMatrix, projectionMatrix, textureMgr->getTexture(L"island_floor"), textureMgr->getTexture(L"colour_1_heightCUT"), camera);
 		terrainDepthShader->render(renderer->getDeviceContext(), topTerrain->getIndexCount());
 
 		// Water - own vertex shader needed to calculate displacements to cast shows correclty on it
@@ -534,12 +526,8 @@ void App1::generateIslands(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatr
 		terrainShader->setShaderParameters(
 			renderer->getDeviceContext(),
 			islandWorld, viewMatrix, projectionMatrix,
-			sceneData->sonarData.isActive, sceneData->sonarData.sonarOrigin,
 			sceneData->audioState.sonarMaxRadius * (sceneData->sonarData.sonarTime / sceneData->sonarData.sonarDuration),
-			textureMgr->getTexture(L"terrain_heightmapCUT"),
-			textureMgr->getTexture(L"colour_1_heightCUT"),
-			textureMgr->getTexture(L"colour_1"),
-			textureMgr->getTexture(L"colour_2"),
+			textureMgr->getTexture(L"island_floor"),
 			sceneData->shadowLightsData.enableSpotShadow ? shadowMap[0]->getDepthMapSRV() : nullptr,
 			sceneData->shadowLightsData.enableDirShadow ? shadowMap[1]->getDepthMapSRV() : nullptr,
 			camera, spotLight, directionalLight, sceneData
@@ -625,12 +613,8 @@ void App1::generateBridges(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatr
 		topTerrain->sendData(renderer->getDeviceContext(), D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
 		terrainShader->setShaderParameters(
 			renderer->getDeviceContext(),
-			bridgeWorld, viewMatrix, projectionMatrix,
-			sceneData->sonarData.isActive, sceneData->sonarData.sonarOrigin, sonarRadius,
-			textureMgr->getTexture(L"bridge_texture"),
-			textureMgr->getTexture(L"colour_1_heightCUT"),
-			textureMgr->getTexture(L"colour_1"),
-			textureMgr->getTexture(L"colour_2"),
+			bridgeWorld, viewMatrix, projectionMatrix, sonarRadius,
+			textureMgr->getTexture(L"island_floor"),
 			sceneData->shadowLightsData.enableSpotShadow ? shadowMap[0]->getDepthMapSRV() : nullptr,
 			sceneData->shadowLightsData.enableDirShadow ? shadowMap[1]->getDepthMapSRV() : nullptr,
 			camera, spotLight, directionalLight, sceneData
@@ -781,6 +765,12 @@ void App1::gui()
 		voronoiIslands->GenerateIslands();
 		terrainShader->setIslands(voronoiIslands->GetIslands(), sceneData->islandSize);
 		terrainShader->setBridges(voronoiIslands->GetBridges(), voronoiIslands->GetIslands());
+		audioSystem.stopAllIslandAmbience();
+		for (auto& island : voronoiIslands->GetIslands()) {
+			float height = terrainShader->getHeight(island.position.x, island.position.z);
+			XMFLOAT3 pos = XMFLOAT3(island.position.x, height, island.position.z);
+			audioSystem.createIslandAmbience(pos);
+		}
 	}
 
 	ImGui::Separator();
@@ -926,12 +916,9 @@ void App1::initComponents() {
 	// Terrain
 	topTerrain = new CubeMesh(renderer->getDevice(), renderer->getDeviceContext());
 	terrainShader = new TerrainManipulation(renderer->getDevice(), hwnd);
-	textureMgr->loadTexture(L"terrain_heightmap", L"res/HeightMaps/11_2.jpg"); // © Mapzen, OpenStreetMap, and others. Unreal PNG Heightmap. Available at: https://manticorp.github.io/unrealheightmap/index.html (Accessed: November 12, 2024).
-	textureMgr->loadTexture(L"colour_1_height", L"res/snowdust/textures/snow_field_aerial_height_2k.png"); // Tuytel, Rob (2021). Poly Haven. Available at: https://polyhaven.com/a/snow_field_aerial (Accessed: November 27, 2024).
-	textureMgr->loadTexture(L"colour_1", L"res/snowdust/textures/snow_field_aerial_col_2k.jpg"); // Tuytel, Rob (2021). Poly Haven. Available at: https://polyhaven.com/a/snow_field_aerial (Accessed: November 27, 2024).
-	textureMgr->loadTexture(L"colour_2", L"res/snow2/snow.jpg"); // wirestock. Freepik. Available at: https://www.freepik.com/free-photo/closeup-texture-fresh-white-snow-surface_23836198.htm#fromView=search&page=1&position=1&uuid=89966487-bab0-4307-a96b-a316a9055e31 (Accessed: November 27, 2024).
 
 	// Voronoi Islands
+	textureMgr->loadTexture(L"island_floor", L"res/Floor_Black.jpg");
 	voronoiIslands = make_unique<Voronoi::VoronoiIslands>(sceneData->gridSize, sceneData->islandCount);
 	voronoiIslands->GenerateIslands();
 	terrainShader->setIslands(voronoiIslands->GetIslands(), sceneData->islandSize);

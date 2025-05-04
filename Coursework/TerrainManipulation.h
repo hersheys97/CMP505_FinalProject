@@ -21,8 +21,6 @@ A simple sinusoidal terrain (no external libs) and hooked up smooth collision-sl
 using namespace std;
 using namespace DirectX;
 
-
-
 class TerrainManipulation : public BaseShader
 {
 private:
@@ -78,7 +76,9 @@ private:
 		XMFLOAT3 sonarOrigin;
 		float sonarRadius;
 		bool sonarActive;
-		XMFLOAT3 padding;
+		float sonarTime;
+		float sonarDuration;
+		float padding;
 	};
 
 	ID3D11Buffer* matrixBuffer;
@@ -144,7 +144,5 @@ public:
 		}
 	}
 
-	void setShaderParameters(ID3D11DeviceContext* deviceContext, const XMMATRIX& world, const XMMATRIX& view, const XMMATRIX& projection,
-		bool sonarActive, XMFLOAT3 sonarOrigin, float sonarRadius,
-		ID3D11ShaderResourceView* terrain, ID3D11ShaderResourceView* texture_height, ID3D11ShaderResourceView* texture_colour, ID3D11ShaderResourceView* texture_colour1, ID3D11ShaderResourceView* depth1, ID3D11ShaderResourceView* depth2, Camera* camera, Light* light, Light* directionalLight, SceneData* sceneData);
+	void setShaderParameters(ID3D11DeviceContext* deviceContext, const XMMATRIX& world, const XMMATRIX& view, const XMMATRIX& projection, float sonarRadius, ID3D11ShaderResourceView* terrain, ID3D11ShaderResourceView* depth1, ID3D11ShaderResourceView* depth2, Camera* camera, Light* light, Light* directionalLight, SceneData* sceneData);
 };
