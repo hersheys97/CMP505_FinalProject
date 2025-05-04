@@ -4,23 +4,19 @@
 #include <DirectXMath.h>
 #include <random>
 #include <memory>
+#include <algorithm>
 
-using namespace std;
-using namespace DirectX;
-
-class VoronoiIslands {
-public:
-	struct Wall {
-		XMFLOAT3 start;
-		XMFLOAT3 end;
-		float height;
-	};
+namespace Voronoi {
+	// Constants
+	constexpr float REGION_SIZE = 150.f;
+	constexpr float ISLAND_SIZE = 50.f;
+	constexpr float PICKUP_OFFSET_RATIO = 0.8f;
 
 	struct Island {
 		XMFLOAT3 position = { 0.f, 0.f, 0.f };
 		float rotationY = 0.f;
 		bool initialized = false;
-		vector<Wall> walls;
+		vector<XMFLOAT3> pickupPositions;
 	};
 
 	struct Bridge {
@@ -28,34 +24,35 @@ public:
 		size_t islandB;
 	};
 
-	VoronoiIslands(int cellSize, int islandCount);
-	void GenerateIslands();
+	class VoronoiIslands {
+	public:
+		VoronoiIslands(int cellSize, int islandCount);
 
-	const vector<Island>& GetIslands() const { return islands; }
-	const vector<Bridge>& GetBridges() const { return bridges; }
+		// Generation
+		void GenerateIslands();
 
-	XMFLOAT3 GetRandomIslandPosition() const {
-		if (islands.empty()) return { 0, 0, 0 };
+		// Getters
+		const vector<Island>& GetIslands() const { return islands_; }
+		const vector<Bridge>& GetBridges() const { return bridges_; }
+		XMFLOAT3 GetRandomIslandPosition() const;
 
-		uniform_int_distribution<size_t> dist(0, islands.size() - 1);
-		size_t randomIndex = dist(*gen);
+	private:
+		// Core generation methods
+		void GenerateVoronoiRegions();
+		void GenerateMinimumSpanningTree();
+		void GenerateIsland(Island& island, const XMFLOAT3& region);
+		void GeneratePickups(Island& island);
 
-		// Return just the XZ position, we'll get height from terrain later
-		return {
-			islands[randomIndex].position.x,
-			0.0f, // Y will be set from terrain height
-			islands[randomIndex].position.z
-		};
-	}
+		// Helper methods
+		void CalculateGridDimensions(int& cols, int& rows) const;
+		void AdjustIslandPosition(Island& island, const XMFLOAT3& region, float minX, float maxX, float minZ, float maxZ);
+		void RotateIslandCorners(const Island& island, XMFLOAT3(&corners)[4]) const;
 
-private:
-	void GenerateVoronoiRegions();
-	void GenerateMinimumSpanningTree();
-	void GenerateWalls(Island& island);
-
-	vector<Island> islands;
-	vector<Bridge> bridges;
-	vector<XMFLOAT3> voronoiRegions;
-	int gridSize;
-	unique_ptr<mt19937> gen;
-};
+		// Data
+		vector<Island> islands_;
+		vector<Bridge> bridges_;
+		vector<XMFLOAT3> voronoiRegions_;
+		int gridSize_;
+		unique_ptr<mt19937> randomEngine_;
+	};
+}

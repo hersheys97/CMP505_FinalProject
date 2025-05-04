@@ -64,8 +64,23 @@
     <Filter Include="Resource Files\RtT\Bloom">
       <UniqueIdentifier>{f0eafc90-a533-45db-8e8a-ccc4a70278b1}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Resource Files\RtT\EchoPulse">
+    <Filter Include="Source Files\Actors">
+      <UniqueIdentifier>{1872f6fe-bf69-4f4e-9314-1e23ebdc0489}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Actors">
+      <UniqueIdentifier>{3381f1f6-bf23-4302-a4e7-7b9cb27db38e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Audio">
+      <UniqueIdentifier>{dde3c721-0eaf-423f-a55a-adf2b414b2e2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Audio">
+      <UniqueIdentifier>{955fc3f8-3790-4bea-a632-b15b6cbb7501}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\RtT\ChromaticAberration">
       <UniqueIdentifier>{d041da0e-8acc-4e04-a9a0-0b78e40baa99}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\Simple">
+      <UniqueIdentifier>{76a23b9c-70a4-412b-83e4-a3c22d54bded}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -102,19 +117,22 @@
     <ClCompile Include="Bloom.cpp">
       <Filter>Source Files\RtT</Filter>
     </ClCompile>
-    <ClCompile Include="Player.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="VoronoiIslands.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="EchoPulse.cpp">
+    <ClCompile Include="ChromaticAberration.cpp">
       <Filter>Source Files\RtT</Filter>
     </ClCompile>
+    <ClCompile Include="Player.cpp">
+      <Filter>Source Files\Actors</Filter>
+    </ClCompile>
     <ClCompile Include="FMODAudioSystem.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Audio</Filter>
     </ClCompile>
     <ClCompile Include="Ghost.cpp">
+      <Filter>Source Files\Actors</Filter>
+    </ClCompile>
+    <ClCompile Include="VoronoiIslands.cpp">
+      <Filter>Source Files\Mesh</Filter>
+    </ClCompile>
+    <ClCompile Include="SimpleTexture.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -152,19 +170,22 @@
     <ClInclude Include="Bloom.h">
       <Filter>Header Files\RtT</Filter>
     </ClInclude>
-    <ClInclude Include="Player.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="VoronoiIslands.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="EchoPulse.h">
+    <ClInclude Include="ChromaticAberration.h">
       <Filter>Header Files\RtT</Filter>
     </ClInclude>
-    <ClInclude Include="FMODAudioSystem.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="Player.h">
+      <Filter>Header Files\Actors</Filter>
     </ClInclude>
     <ClInclude Include="Ghost.h">
+      <Filter>Header Files\Actors</Filter>
+    </ClInclude>
+    <ClInclude Include="FMODAudioSystem.h">
+      <Filter>Header Files\Audio</Filter>
+    </ClInclude>
+    <ClInclude Include="VoronoiIslands.h">
+      <Filter>Header Files\Mesh</Filter>
+    </ClInclude>
+    <ClInclude Include="SimpleTexture.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -229,11 +250,17 @@
     <FxCompile Include="bloom_vs.hlsl">
       <Filter>Resource Files\RtT\Bloom</Filter>
     </FxCompile>
-    <FxCompile Include="echopulse_ps.hlsl">
-      <Filter>Resource Files\RtT\EchoPulse</Filter>
+    <FxCompile Include="aberration_ps.hlsl">
+      <Filter>Resource Files\RtT\ChromaticAberration</Filter>
     </FxCompile>
-    <FxCompile Include="echopulse_vs.hlsl">
-      <Filter>Resource Files\RtT\EchoPulse</Filter>
+    <FxCompile Include="aberration_vs.hlsl">
+      <Filter>Resource Files\RtT\ChromaticAberration</Filter>
+    </FxCompile>
+    <FxCompile Include="simple_ps.hlsl">
+      <Filter>Resource Files\Simple</Filter>
+    </FxCompile>
+    <FxCompile Include="simple_vs.hlsl">
+      <Filter>Resource Files\Simple</Filter>
     </FxCompile>
   </ItemGroup>
 </Project>

@@ -170,13 +170,14 @@
     <ClCompile Include="Bloom.cpp" />
     <ClCompile Include="DepthShader.cpp" />
     <ClCompile Include="DomeShader.cpp" />
-    <ClCompile Include="EchoPulse.cpp" />
+    <ClCompile Include="ChromaticAberration.cpp" />
     <ClCompile Include="FireflyShader.cpp" />
     <ClCompile Include="FMODAudioSystem.cpp" />
     <ClCompile Include="Ghost.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="MoonShader.cpp" />
     <ClCompile Include="Player.cpp" />
+    <ClCompile Include="SimpleTexture.cpp" />
     <ClCompile Include="TerrainDepthShader.cpp" />
     <ClCompile Include="TerrainManipulation.cpp" />
     <ClCompile Include="VoronoiIslands.cpp" />
@@ -188,13 +189,14 @@
     <ClInclude Include="Bloom.h" />
     <ClInclude Include="depthShader.h" />
     <ClInclude Include="DomeShader.h" />
-    <ClInclude Include="EchoPulse.h" />
+    <ClInclude Include="ChromaticAberration.h" />
     <ClInclude Include="FireflyShader.h" />
     <ClInclude Include="FMODAudioSystem.h" />
     <ClInclude Include="Ghost.h" />
     <ClInclude Include="MoonShader.h" />
     <ClInclude Include="Player.h" />
     <ClInclude Include="SceneData.h" />
+    <ClInclude Include="SimpleTexture.h" />
     <ClInclude Include="TerrainDepthShader.h" />
     <ClInclude Include="TerrainManipulation.h" />
     <ClInclude Include="VoronoiIslands.h" />
@@ -231,13 +233,13 @@
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
     </FxCompile>
-    <FxCompile Include="echopulse_ps.hlsl">
+    <FxCompile Include="aberration_ps.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
     </FxCompile>
-    <FxCompile Include="echopulse_vs.hlsl">
+    <FxCompile Include="aberration_vs.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Vertex</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Vertex</ShaderType>
@@ -257,6 +259,18 @@
     </FxCompile>
     <FxCompile Include="moon_vs.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
+    </FxCompile>
+    <FxCompile Include="simple_ps.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+    </FxCompile>
+    <FxCompile Include="simple_vs.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Vertex</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
     </FxCompile>
     <FxCompile Include="terrainDepth_ds.hlsl">

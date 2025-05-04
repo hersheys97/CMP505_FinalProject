@@ -9,11 +9,12 @@
 #include "MoonShader.h"
 #include "DomeShader.h"
 #include "Bloom.h"
-#include "EchoPulse.h"
+#include "ChromaticAberration.h"
 #include "DepthShader.h"
 #include "FireflyShader.h"
 #include "WaterDepthShader.h"
 #include "TerrainDepthShader.h"
+#include "SimpleTexture.h"
 #include "SceneData.h"
 #include "Player.h"
 #include "VoronoiIslands.h"
@@ -43,6 +44,9 @@ private:
 	float randomFloat(float min, float max);
 
 	// Rendering methods
+	void renderToTexture();
+	void finalRenderToScreen();
+
 	void renderAudio();
 	void getShadowDepthMap(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, const XMMATRIX& identityMatrix);
 	void finalRender(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, const XMMATRIX& identityMatrix);
@@ -50,7 +54,7 @@ private:
 	void renderGhost(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
 
 	void applyBloom(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
-	void applyPulse(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
+	void applyChromaticAberration(const XMMATRIX& worldMatrix, const XMMATRIX& orthoViewMatrix, const XMMATRIX& orthoMatrix);
 
 	void renderDome(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
 	void renderTerrain(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
@@ -60,7 +64,7 @@ private:
 
 	void generateIslands(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
 	void generateBridges(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
-	void generateWalls(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
+	void generatePickups(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
 
 	// Cleanup method
 	void cleanup();
@@ -77,10 +81,20 @@ private:
 	RenderTexture* renderBloom;
 	Bloom* bloomShader;
 
-	// Render Texture - EchoPulse
-	RenderTexture* renderTerrainRT;
-	RenderTexture* renderEcho;
-	EchoPulse* echoPulse;
+	// Render Texture - Chromatic Aberration
+	bool useChromaticAberration = false;
+	float chromaticAberrationIntensity = 0.0f;
+	float maxChromaticAberration = 0.01f; // Adjust for stronger/weaker effect
+	XMFLOAT2 offsets = { 0.0f, 0.0f };
+	XMFLOAT2 ghostScreenPos = { 0.0f, 0.0f };
+	float ghostDistance = 0.0f;
+	float timeCalc = 0.0f;
+	float effectIntensity = 0.0f;
+
+	ChromaticAberration* chromaticAberration;
+	RenderTexture* renderAberration;
+	SimpleTexture* simpleTexture;
+	QuadMesh* screenEffects;
 
 	// Dome
 	SphereMesh* circleDome;
@@ -98,8 +112,8 @@ private:
 	SphereMesh* moon;
 	MoonShader* moonShader;
 
-	// Model
-	AModel* firefly;
+	// Model - Ghost
+	AModel* ghost;
 	FireflyShader* fireflyShader;
 
 	// Lights
@@ -107,6 +121,9 @@ private:
 	Light* directionalLight;
 	Light* pointLight1;
 	Light* pointLight2;
+
+	// Model - Pickups
+	AModel* teapot;
 
 	// Player
 	Player* player;
@@ -116,7 +133,7 @@ private:
 	bool firstTimeInPlayMode = true;
 
 	// Voronoi Islands
-	unique_ptr<VoronoiIslands> voronoiIslands;
+	unique_ptr<Voronoi::VoronoiIslands> voronoiIslands;
 	float islandSize = 50.0f; // ISLAND_SIZE
 	int islandCount = 2;
 	float minIslandDistance = 30.0f;
@@ -142,6 +159,11 @@ private:
 	int currentIslandIndex = -1;
 	float directionChangeTimer = 0.0f;
 	float nextDirectionChangeTime = 7.0;
+
+	float effectFadeTimer = 0.0f;
+	float effectFadeDuration = 1.0f; // 1 second fade in/out
+	bool effectFadingIn = false;
+	bool effectFadingOut = false;
 
 	XMFLOAT3 sonarTargetPosition = { 0.f, 0.f, 0.f };
 	float sonarResponseTimer = 0.f;

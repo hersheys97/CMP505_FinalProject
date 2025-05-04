@@ -14,6 +14,9 @@ A simple sinusoidal terrain (no external libs) and hooked up smooth collision-sl
 
 #include "DXF.h"
 #include "VoronoiIslands.h"	
+#include <memory>
+#include <vector>
+#include <utility>
 
 using namespace std;
 using namespace DirectX;
@@ -78,8 +81,6 @@ private:
 		XMFLOAT3 padding;
 	};
 
-	unique_ptr<VoronoiIslands> voronoiIslands;
-
 	ID3D11Buffer* matrixBuffer;
 	ID3D11Buffer* lightBuffer;
 	ID3D11Buffer* cameraBuffer;
@@ -90,61 +91,58 @@ private:
 	ID3D11SamplerState* shadowSample1;
 	ID3D11SamplerState* shadowSample2;
 
-	void initShader(const wchar_t* cs, const wchar_t* ps);
-	void initShader(const wchar_t* vsFilename, const wchar_t* hsFilename, const wchar_t* dsFilename, const wchar_t* psFilename);
 
-	const vector<VoronoiIslands::Island>* m_islands = nullptr;
+	// Island and bridge data
+	unique_ptr<Voronoi::VoronoiIslands> voronoiIslands;
+	const vector<Voronoi::Island>* m_islands = nullptr;
 	float m_regionSize = 0.0f;
-
-	const vector<VoronoiIslands::Wall>* m_walls = nullptr;
-	vector<pair<XMFLOAT3, XMFLOAT3>> m_bridges; // start , end
 	float m_bridgeWidth = 5.0f;
+	vector<pair<XMFLOAT3, XMFLOAT3>> m_bridges;
 
+	// Constants
+	static constexpr float BRIDGE_WIDTH = 5.0f;
 	static constexpr float HEIGHT_AMPLITUDE = 1.0f;
 	static constexpr float HEIGHT_FREQ = 0.1f;
 	static constexpr float NORMAL_DELTA = 0.1f;
+	static constexpr float PICKUP_HEIGHT_OFFSET = 1.0f;
 
-	/*const float TERRAIN_MIN_X = -50.f;
-	const float TERRAIN_MAX_X = 50.f;
-	const float TERRAIN_MIN_Z = -50.f;
-	const float TERRAIN_MAX_Z = 50.f;*/
-
+	void initShader(const wchar_t* cs, const wchar_t* ps);
+	void initShader(const wchar_t* vsFilename, const wchar_t* hsFilename, const wchar_t* dsFilename, const wchar_t* psFilename);
 
 public:
 
 	TerrainManipulation(ID3D11Device* device, HWND hwnd);
 	~TerrainManipulation();
 
+	// Terrain query functions
 	float getHeight(float x, float z) const;
 	bool isOnTerrain(float x, float z) const;
 	XMFLOAT3 getNormal(float x, float z) const;
-	const vector<VoronoiIslands::Wall>& getWalls() const {
-		return *m_walls;  // Returns a reference to the vector of walls
-	}
+	bool onBridge(float x, float z) const;
+
+	// Getters
 	const vector<pair<XMFLOAT3, XMFLOAT3>>& getBridges() const {
-		return m_bridges;  // Returns a reference to the vector of bridge pairs
+		return m_bridges;
 	}
 
-	void setIslands(const vector<VoronoiIslands::Island>& islands, float regionSize);
-
-	void setWalls(const vector<VoronoiIslands::Wall>& walls) {
-		m_walls = &walls;
+	// Setters
+	void setIslands(const vector<Voronoi::Island>& islands, float regionSize) {
+		m_islands = &islands;
+		m_regionSize = regionSize;
 	}
-	void setBridges(const vector<VoronoiIslands::Bridge>& bridges,
-		const vector<VoronoiIslands::Island>& islands)
-	{
+
+	void setBridges(const vector<Voronoi::Bridge>& bridges,
+		const vector<Voronoi::Island>& islands) {
 		m_bridges.clear();
-		for (auto& b : bridges) {
+		m_bridges.reserve(bridges.size());
+
+		for (const auto& bridge : bridges) {
 			m_bridges.emplace_back(
-				islands[b.islandA].position,
-				islands[b.islandB].position
+				islands[bridge.islandA].position,
+				islands[bridge.islandB].position
 			);
 		}
 	}
-
-	bool collidesWall(float x, float z) const;
-	bool onBridge(float x, float z) const;
-
 
 	void setShaderParameters(ID3D11DeviceContext* deviceContext, const XMMATRIX& world, const XMMATRIX& view, const XMMATRIX& projection,
 		bool sonarActive, XMFLOAT3 sonarOrigin, float sonarRadius,

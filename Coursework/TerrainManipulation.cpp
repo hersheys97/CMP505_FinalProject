@@ -188,15 +188,6 @@ void TerrainManipulation::initShader(const wchar_t* vsFilename, const wchar_t* h
 	renderer->CreateSamplerState(&spotShadowDesc, &shadowSample2);
 }
 
-
-void TerrainManipulation::setIslands(const vector<VoronoiIslands::Island>& islands, float regionSize)
-{
-	// store pointer to the islands array (lifetime must exceed this object)
-	m_islands = &islands;
-	// we'll test half-size around each center
-	m_regionSize = regionSize;
-}
-
 bool TerrainManipulation::isOnTerrain(float x, float z) const
 {
 	if (!m_islands) return false;
@@ -237,7 +228,6 @@ bool TerrainManipulation::onBridge(float x, float z) const {
 	return false;
 }
 
-// height and normal remain the same:
 float TerrainManipulation::getHeight(float x, float z) const
 {
 	return sinf(x * HEIGHT_FREQ) * cosf(z * HEIGHT_FREQ) * HEIGHT_AMPLITUDE;
