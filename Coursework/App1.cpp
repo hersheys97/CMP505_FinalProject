@@ -129,17 +129,24 @@ void App1::finalRenderToScreen() {
 
 
 
+
+
 void App1::renderAudio() {
 	audioSystem.update(timer->getTime());
 
-	// Update listener position (critical for 3D audio)
+	// Update listener position
 	XMFLOAT3 camPos = camera->getPosition();
 	XMFLOAT3 camForward = camera->getForward();
 	XMFLOAT3 camUp = camera->getUp();
 	audioSystem.updateListenerPosition(camPos, camForward, camUp);
 
-	// Update island ambiences
-	audioSystem.updateIslandAmbiences(camPos);
+	// Update island ambiences - always pass the closest island
+	if (voronoiIslands) {
+		int closestIsland = voronoiIslands->GetClosestIslandIndex(camPos);
+		if (closestIsland >= 0) {
+			audioSystem.updateIslandAmbiences(camPos, closestIsland);
+		}
+	}
 }
 
 void App1::renderPlayer() {
@@ -497,43 +504,38 @@ void App1::renderDome(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, c
 // Procedural Generation of Voronoi Islands
 // Based on the number of islands, that many Voronoi regions are created in voronoiIslands.GenerateVoronoiRegions(). Then, inside each Voronoi region, an island is spawn with a random position and rotation. After that, each island connects to one other island with a bridge. The islands have collision detection with the Player (Play Mode) or the Camera (Fly Mode).
 
-void App1::generateIslands(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix)
-{
+void App1::generateIslands(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix) {
 	constexpr float ISLAND_SCALE = 50.0f;
 	auto& islands = voronoiIslands->GetIslands();
 
-	// Clear existing ambiences if needed
+	// Clear existing ambiences only on first generation
 	if (sceneData->firstTimeGeneratingIslands) {
 		audioSystem.stopAllIslandAmbience();
 		sceneData->firstTimeGeneratingIslands = false;
+
+		// Create ambiences for all islands at once
+		for (auto& island : islands) {
+			if (!island.initialized) continue;
+			float height = terrainShader->getHeight(island.position.x, island.position.z);
+			audioSystem.createIslandAmbience(XMFLOAT3(island.position.x, height, island.position.z));
+		}
 	}
 
-	for (auto& island : islands)
-	{
+	for (auto& island : islands) {
 		if (!island.initialized) continue;
 
-		// Calculate height at island center
 		float height = terrainShader->getHeight(island.position.x, island.position.z);
-
-		// Create world matrix with proper height
 		XMMATRIX islandWorld = XMMatrixScaling(ISLAND_SCALE, 1.0f, ISLAND_SCALE) *
 			XMMatrixRotationY(island.rotationY) *
 			XMMatrixTranslation(island.position.x, height, island.position.z);
-
-		// Create ambience for this island if it doesn't have one
-		if (!island.hasAmbience) {
-			audioSystem.createIslandAmbience(XMFLOAT3(island.position.x, height, island.position.z));
-			island.hasAmbience = true;
-		}
-
-		float sonarRadius = sceneData->audioState.sonarMaxRadius * (sceneData->sonarData.sonarTime / sceneData->sonarData.sonarDuration);
 
 		// Render island with heightmap
 		topTerrain->sendData(renderer->getDeviceContext(), D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
 		terrainShader->setShaderParameters(
 			renderer->getDeviceContext(),
 			islandWorld, viewMatrix, projectionMatrix,
-			sceneData->sonarData.isActive, sceneData->sonarData.sonarOrigin, sonarRadius,
+			sceneData->sonarData.isActive, sceneData->sonarData.sonarOrigin,
+			sceneData->audioState.sonarMaxRadius * (sceneData->sonarData.sonarTime / sceneData->sonarData.sonarDuration),
 			textureMgr->getTexture(L"terrain_heightmapCUT"),
 			textureMgr->getTexture(L"colour_1_heightCUT"),
 			textureMgr->getTexture(L"colour_1"),

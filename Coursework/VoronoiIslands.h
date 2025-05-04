@@ -38,6 +38,25 @@ namespace Voronoi {
 		const vector<Bridge>& GetBridges() const { return bridges_; }
 		XMFLOAT3 GetRandomIslandPosition() const;
 
+		int GetClosestIslandIndex(const XMFLOAT3& position) const {
+			int closestIndex = -1;
+			float minDistance = FLT_MAX;
+
+			for (size_t i = 0; i < islands_.size(); i++) {
+				if (!islands_[i].initialized) continue;
+
+				float dx = islands_[i].position.x - position.x;
+				float dz = islands_[i].position.z - position.z;
+				float distance = dx * dx + dz * dz; // Squared distance for comparison
+
+				if (distance < minDistance) {
+					minDistance = distance;
+					closestIndex = static_cast<int>(i);
+				}
+			}
+			return closestIndex;
+		}
+
 	private:
 		// Core generation methods
 		void GenerateVoronoiRegions();

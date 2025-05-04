@@ -74,7 +74,7 @@ public:
 	void setGhostEffectIntensity(float intensity);  // 0.0f to 1.0f
 
 	void createIslandAmbience(const XMFLOAT3& position);
-	void updateIslandAmbiences(const XMFLOAT3& listenerPosition);
+	void updateIslandAmbiences(const XMFLOAT3& listenerPos, int activeIslandIndex);
 	void stopAllIslandAmbience();
 
 private:

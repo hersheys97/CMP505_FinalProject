@@ -170,4 +170,5 @@ namespace Voronoi {
 
 		return { islands_[randomIndex].position.x, 0.0f, islands_[randomIndex].position.z };
 	}
+
 }

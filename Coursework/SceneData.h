@@ -131,9 +131,6 @@ public:
 	PlayerData playerData;
 	AudioState audioState;
 
-	// Islands, Bridges
-	VoronoiIslands* voronoiIslands = nullptr;
-
 	bool isGamePaused = true;
 
 	float islandSize = 50.0f;

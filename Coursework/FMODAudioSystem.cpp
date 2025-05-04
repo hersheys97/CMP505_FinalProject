@@ -5,6 +5,11 @@ T clamp(const T& value, const T& min, const T& max) {
 	return (value < min) ? min : (value > max) ? max : value;
 }
 
+inline float smoothstep(float edge0, float edge1, float x) {
+	x = clamp((x - edge0) / (edge1 - edge0), 0.0f, 1.0f);
+	return x * x * (3.0f - 2.0f * x);
+}
+
 FMODAudioSystem::FMODAudioSystem() : studioSystem(nullptr) {
 	bgm.instance = nullptr;
 	bgm.channelGroup = nullptr;
@@ -89,7 +94,7 @@ void FMODAudioSystem::playBGM1() {
 	if (result == FMOD_OK && events.bgm1) {
 		events.bgm1->start();
 		bgm.started = true;
-		bgm.targetVolume = 0.6f; // Full volume
+		bgm.targetVolume = 0.8f;
 	}
 }
 
@@ -403,61 +408,74 @@ void FMODAudioSystem::setGhostEffectIntensity(float intensity) {
 }
 
 void FMODAudioSystem::createIslandAmbience(const XMFLOAT3& position) {
-	// Get event description
-	FMOD::Studio::EventDescription* eventDescription = nullptr;
-	FMOD_RESULT result = studioSystem->getEvent("event:/Ambience", &eventDescription);
+	if (!studioSystem) return;
 
-	// Create instance
+	FMOD::Studio::EventDescription* eventDesc = nullptr;
+	FMOD_RESULT result = studioSystem->getEvent("event:/Ambience", &eventDesc);
+	if (result != FMOD_OK || !eventDesc) return;
+
 	FMOD::Studio::EventInstance* instance = nullptr;
-	result = eventDescription->createInstance(&instance);
+	result = eventDesc->createInstance(&instance);
+	if (result != FMOD_OK || !instance) return;
 
-	// Start the instance
-	result = instance->start();
+	// Set 3D attributes
+	FMOD_3D_ATTRIBUTES attributes = { { 0 } };
+	attributes.position = { position.x, position.y, position.z };
+	instance->set3DAttributes(&attributes);
 
-	// Store the instance
-	IslandAmbience ambience;
-	ambience.instance = instance;
-	ambience.position = position;
-	ambience.active = true;
-	islandAmbiences.push_back(ambience);
+	// Start with full volume (we'll control it in update)
+	instance->setVolume(1.0f); // Changed from 0.0f to 1.0f
+	instance->start();
+
+	// Ensure the ambience is playable
+	instance->setPaused(false);
+
+	islandAmbiences.push_back({ instance, position, true }); // Set active to true initially
 }
 
-void FMODAudioSystem::updateIslandAmbiences(const XMFLOAT3& listenerPosition) {
-	for (auto& ambience : islandAmbiences) {
-		if (!ambience.active || !ambience.instance) continue;
+void FMODAudioSystem::updateIslandAmbiences(const XMFLOAT3& listenerPos, int activeIslandIndex) {
+	if (islandAmbiences.empty()) return;
 
-		// Calculate distance with height attenuation
-		float dx = ambience.position.x - listenerPosition.x;
-		float dy = ambience.position.y * 0.3f - listenerPosition.y * 0.3f; // Reduced vertical influence
-		float dz = ambience.position.z - listenerPosition.z;
-		float distance = sqrtf(dx * dx + dz * dz + dy * dy);
+	for (size_t i = 0; i < islandAmbiences.size(); i++) {
+		auto& ambience = islandAmbiences[i];
+		if (!ambience.instance) continue;
 
-		// Double-slope distance model
-		float volume;
-		if (distance < AMBIENCE_MIN_DISTANCE) {
-			volume = 1.0f;
+		// Calculate distance (ignore height for simpler calculation)
+		float dx = ambience.position.x - listenerPos.x;
+		float dz = ambience.position.z - listenerPos.z;
+		float distance = sqrtf(dx * dx + dz * dz);
+
+		// Determine if this is the active island
+		bool isActiveIsland = (i == activeIslandIndex);
+
+		// Calculate volume based on distance and active status
+		float volume = 0.0f;
+		if (isActiveIsland) {
+			// Active island volume curve
+			if (distance < AMBIENCE_MIN_DISTANCE) {
+				volume = 1.0f; // Full volume when close
+			}
+			else if (distance < AMBIENCE_MAX_DISTANCE) {
+				// Linear fade from MIN to MAX distance
+				volume = 1.0f - ((distance - AMBIENCE_MIN_DISTANCE) /
+					(AMBIENCE_MAX_DISTANCE - AMBIENCE_MIN_DISTANCE));
+			}
+			// Else volume stays 0
 		}
-		else if (distance < AMBIENCE_MAX_DISTANCE) {
-			float t = (distance - AMBIENCE_MIN_DISTANCE) /
-				(AMBIENCE_MAX_DISTANCE - AMBIENCE_MIN_DISTANCE);
-			volume = 1.0f - t * 0.7f; // 70% volume reduction at max distance
-		}
-		else {
-			volume = 0.3f - ((distance - AMBIENCE_MAX_DISTANCE) /
-				(AMBIENCE_CUTOFF_DISTANCE - AMBIENCE_MAX_DISTANCE)) * 0.3f;
-		}
 
-		// Add natural-sounding random fluctuations
-		static random_device rd;
-		static mt19937 gen(rd());
-		uniform_real_distribution<float> dist(0.95f, 1.05f);
-		volume *= dist(gen);
+		// Apply volume directly (no parameter needed)
+		ambience.instance->setVolume(volume);
 
-		// Apply atmospheric absorption simulation
-		float highFreqGain = 1.0f - (distance / AMBIENCE_CUTOFF_DISTANCE);
-		ambience.instance->setParameterByName("HighFreqAttenuation", highFreqGain);
+		// Update 3D position
+		FMOD_3D_ATTRIBUTES attributes = { { 0 } };
+		attributes.position = { ambience.position.x, ambience.position.y, ambience.position.z };
+		ambience.instance->set3DAttributes(&attributes);
 
-		ambience.instance->setVolume(clamp(volume, 0.0f, 1.0f));
+		// Debug output
+		char buffer[256];
+		sprintf_s(buffer, "Island %d: Active=%d, Dist=%.1f, Vol=%.2f\n",
+			(int)i, isActiveIsland, distance, volume);
+		OutputDebugStringA(buffer);
 	}
 }
 
