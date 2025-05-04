@@ -17,6 +17,7 @@ namespace Voronoi {
 		float rotationY = 0.f;
 		bool initialized = false;
 		vector<XMFLOAT3> pickupPositions;
+		bool hasAmbience = false;
 	};
 
 	struct Bridge {
@@ -33,6 +34,7 @@ namespace Voronoi {
 
 		// Getters
 		const vector<Island>& GetIslands() const { return islands_; }
+		vector<Island>& GetIslands() { return islands_; }
 		const vector<Bridge>& GetBridges() const { return bridges_; }
 		XMFLOAT3 GetRandomIslandPosition() const;
 

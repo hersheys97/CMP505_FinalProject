@@ -142,6 +142,7 @@ private:
 	// FMOD
 	FMODAudioSystem audioSystem;
 	bool startedBGM = false;
+	bool firstTimeGeneratingIslands = true;
 
 	// Echo Pulse
 	bool sonarActive = false;

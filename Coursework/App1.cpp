@@ -48,7 +48,6 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int screenWidth, int screenHeigh
 	initComponents();
 }
 
-
 bool App1::render() {
 
 	// Clear back buffer once at start
@@ -131,6 +130,15 @@ void App1::finalRenderToScreen() {
 
 void App1::renderAudio() {
 	audioSystem.update(timer->getTime());
+
+	// Update listener position (critical for 3D audio)
+	XMFLOAT3 camPos = camera->getPosition();
+	XMFLOAT3 camForward = camera->getForward();
+	XMFLOAT3 camUp = camera->getUp();
+	audioSystem.updateListenerPosition(camPos, camForward, camUp);
+
+	// Update island ambiences
+	audioSystem.updateIslandAmbiences(camPos);
 }
 
 void App1::renderPlayer() {
@@ -383,10 +391,10 @@ void App1::renderGhost(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, 
 		offsets.x = cos(offsetAngle) * offsetMagnitude;
 		offsets.y = sin(offsetAngle) * offsetMagnitude;
 
-		XMMATRIX fireflyWorldMatrix = XMMatrixTranslation(fireflyPosition.x, fireflyPosition.y, fireflyPosition.z);
+		XMMATRIX ghostWorldMatrix = XMMatrixTranslation(fireflyPosition.x, fireflyPosition.y, fireflyPosition.z);
 
 		ghost->sendData(renderer->getDeviceContext());
-		fireflyShader->setShaderParameters(renderer->getDeviceContext(), fireflyWorldMatrix, viewMatrix, projectionMatrix, textureMgr->getTexture(L"firefly"), camera, spotLight, directionalLight, sceneData);
+		fireflyShader->setShaderParameters(renderer->getDeviceContext(), ghostWorldMatrix, viewMatrix, projectionMatrix, textureMgr->getTexture(L"firefly"), camera, spotLight, directionalLight, sceneData);
 		fireflyShader->render(renderer->getDeviceContext(), ghost->getIndexCount());
 
 		// Update audio effects
@@ -425,10 +433,10 @@ void App1::getShadowDepthMap(const XMMATRIX& worldMatrix, const XMMATRIX& viewMa
 		// 3. Apply Depth Shader to the meshes
 
 		// Firefly
-		XMMATRIX fireflyWorldMatrix = XMMatrixTranslation(sceneData->fireflyData.objPos[0], sceneData->fireflyData.objPos[1], sceneData->fireflyData.objPos[2]) * worldMatrix;
+		XMMATRIX ghostWorldMatrix = XMMatrixTranslation(sceneData->fireflyData.objPos[0], sceneData->fireflyData.objPos[1], sceneData->fireflyData.objPos[2]) * worldMatrix;
 
 		ghost->sendData(renderer->getDeviceContext());
-		depthShader->setShaderParameters(renderer->getDeviceContext(), fireflyWorldMatrix, lightViewMatrix, lightProjectionMatrix);
+		depthShader->setShaderParameters(renderer->getDeviceContext(), ghostWorldMatrix, lightViewMatrix, lightProjectionMatrix);
 		depthShader->render(renderer->getDeviceContext(), ghost->getIndexCount());
 
 		// Terrain - own vertex shader needed to calculate displacements to cast shows correclty on it
@@ -512,9 +520,15 @@ void App1::renderDome(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, c
 void App1::generateIslands(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix)
 {
 	constexpr float ISLAND_SCALE = 50.0f;
-	const auto& islands = voronoiIslands->GetIslands();
+	auto& islands = voronoiIslands->GetIslands();
 
-	for (const auto& island : islands)
+	// Clear existing ambiences if needed
+	if (firstTimeGeneratingIslands) {
+		audioSystem.stopAllIslandAmbience();
+		firstTimeGeneratingIslands = false;
+	}
+
+	for (auto& island : islands)
 	{
 		if (!island.initialized) continue;
 
@@ -525,6 +539,12 @@ void App1::generateIslands(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatr
 		XMMATRIX islandWorld = XMMatrixScaling(ISLAND_SCALE, 1.0f, ISLAND_SCALE) *
 			XMMatrixRotationY(island.rotationY) *
 			XMMatrixTranslation(island.position.x, height, island.position.z);
+
+		// Create ambience for this island if it doesn't have one
+		if (!island.hasAmbience) {
+			audioSystem.createIslandAmbience(XMFLOAT3(island.position.x, height, island.position.z));
+			island.hasAmbience = true;
+		}
 
 		float sonarRadius = sonarMaxRadius * (sonarTime / sonarDuration);
 
@@ -650,10 +670,10 @@ void App1::renderFirefly(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix
 
 	XMMATRIX fireflyScale = XMMatrixScaling(0.2f, 0.2f, 0.2f);
 	XMMATRIX fireflyTranslate = XMMatrixTranslation(sceneData->fireflyData.objPos[0], sceneData->fireflyData.objPos[1], sceneData->fireflyData.objPos[2]);
-	XMMATRIX fireflyWorldMatrix = fireflyScale * fireflyTranslate * worldMatrix;
+	XMMATRIX ghostWorldMatrix = fireflyScale * fireflyTranslate * worldMatrix;
 
 	ghost->sendData(renderer->getDeviceContext());
-	fireflyShader->setShaderParameters(renderer->getDeviceContext(), fireflyWorldMatrix, viewMatrix, projectionMatrix, textureMgr->getTexture(L"firefly"), camera, spotLight, directionalLight, sceneData);
+	fireflyShader->setShaderParameters(renderer->getDeviceContext(), ghostWorldMatrix, viewMatrix, projectionMatrix, textureMgr->getTexture(L"firefly"), camera, spotLight, directionalLight, sceneData);
 	fireflyShader->render(renderer->getDeviceContext(), ghost->getIndexCount());
 }
 

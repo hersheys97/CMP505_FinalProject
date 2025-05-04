@@ -38,6 +38,14 @@ public:
 		FMOD::Studio::EventInstance* girlWhisper = nullptr;
 	} events;
 
+	struct IslandAmbience {
+		FMOD::Studio::EventInstance* instance = nullptr;
+		XMFLOAT3 position;
+		bool active = false;
+	};
+
+	vector<IslandAmbience> islandAmbiences;
+
 	// Constants
 	static constexpr float ECHO_EFFECT_DURATION = 3.0f;
 
@@ -64,6 +72,10 @@ public:
 	void updateGhostEffects(float deltaTime, const XMFLOAT3& listenerPosition);
 	void setGhostEffectIntensity(float intensity);  // 0.0f to 1.0f
 
+	void createIslandAmbience(const XMFLOAT3& position);
+	void updateIslandAmbiences(const XMFLOAT3& listenerPosition);
+	void stopAllIslandAmbience();
+
 private:
 	// Ghost effect parameters
 	float ghostEffectIntensity = 0.0f;
@@ -83,6 +95,10 @@ private:
 	static constexpr float WHISPER_MID_VOLUME = 0.6f;    // Medium volume
 	static constexpr float WHISPER_FAR_VOLUME = 0.2f;    // Quiet when far
 	static constexpr float WHISPER_MIN_VOLUME = 0.0f;    // Minimum volume before mute
+
+	static constexpr float AMBIENCE_MIN_DISTANCE = 55.0f;
+	static constexpr float AMBIENCE_MAX_DISTANCE = 70.0f;
+	static constexpr float AMBIENCE_CUTOFF_DISTANCE = 60.0f;
 
 	static constexpr float GHOST_EFFECT_INTERVAL = 1.5f;
 };

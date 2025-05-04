@@ -89,7 +89,7 @@ void FMODAudioSystem::playBGM1() {
 	if (result == FMOD_OK && events.bgm1) {
 		events.bgm1->start();
 		bgm.started = true;
-		bgm.targetVolume = 1.0f; // Full volume
+		bgm.targetVolume = 0.6f; // Full volume
 	}
 }
 
@@ -457,4 +457,83 @@ void FMODAudioSystem::updateGhostEffects(float deltaTime, const XMFLOAT3& listen
 
 void FMODAudioSystem::setGhostEffectIntensity(float intensity) {
 	ghostEffectIntensity = clamp(intensity, 0.0f, 1.0f);
+}
+
+void FMODAudioSystem::createIslandAmbience(const XMFLOAT3& position) {
+	// Get event description
+	FMOD::Studio::EventDescription* eventDescription = nullptr;
+	FMOD_RESULT result = studioSystem->getEvent("event:/Ambience", &eventDescription);
+
+	// Create instance
+	FMOD::Studio::EventInstance* instance = nullptr;
+	result = eventDescription->createInstance(&instance);
+
+	// Start the instance
+	result = instance->start();
+
+	// Store the instance
+	IslandAmbience ambience;
+	ambience.instance = instance;
+	ambience.position = position;
+	ambience.active = true;
+	islandAmbiences.push_back(ambience);
+}
+
+void FMODAudioSystem::updateIslandAmbiences(const XMFLOAT3& listenerPosition) {
+	for (auto it = islandAmbiences.begin(); it != islandAmbiences.end(); ) {
+		if (!it->active || !it->instance) {
+			it = islandAmbiences.erase(it);
+			continue;
+		}
+
+		// Check playback state
+		FMOD_STUDIO_PLAYBACK_STATE state;
+		FMOD_RESULT result = it->instance->getPlaybackState(&state);
+
+		if (result != FMOD_OK || state == FMOD_STUDIO_PLAYBACK_STOPPED) {
+			if (it->instance) {
+				it->instance->release();
+			}
+			it = islandAmbiences.erase(it);
+			continue;
+		}
+
+		// Calculate distance to listener
+		float dx = it->position.x - listenerPosition.x;
+		float dy = it->position.y - listenerPosition.y;
+		float dz = it->position.z - listenerPosition.z;
+		float distance = sqrtf(dx * dx + dy * dy + dz * dz);
+
+		// Completely mute if beyond cutoff distance
+		if (distance > AMBIENCE_CUTOFF_DISTANCE) {
+			it->instance->setVolume(0.0f);
+			++it;
+			continue;
+		}
+
+		// Calculate volume based on distance
+		float volume = 0.0f;
+		if (distance < AMBIENCE_MIN_DISTANCE) {
+			volume = 1.0f; // Full volume within min distance
+		}
+		else {
+			// Linear fade between min and max distance
+			volume = 1.0f - ((distance - AMBIENCE_MIN_DISTANCE) /
+				(AMBIENCE_MAX_DISTANCE - AMBIENCE_MIN_DISTANCE));
+			volume = clamp(volume, 0.0f, 1.0f);
+		}
+
+		it->instance->setVolume(volume);
+		++it;
+	}
+}
+
+void FMODAudioSystem::stopAllIslandAmbience() {
+	for (auto& ambience : islandAmbiences) {
+		if (ambience.instance) {
+			ambience.instance->stop(FMOD_STUDIO_STOP_ALLOWFADEOUT);
+			ambience.instance->release();
+		}
+	}
+	islandAmbiences.clear();
 }
