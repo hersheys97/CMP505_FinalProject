@@ -1,39 +1,55 @@
 #pragma once
 #include <BaseApplication.h>
+#include "SceneData.h"
 #include "TerrainManipulation.h"
+#include "FMODAudioSystem.h"
 
 class Player {
 public:
 	Player();
+	~Player() = default;
 
-	XMFLOAT3 getPosition() const;
-	XMFLOAT3 getRotation() const;
+	// Initialization
+	void initialize(SceneData* sceneData);
 
+	// Core gameplay functions
+	void updatePlayer(float deltaTime, Input* input, TerrainManipulation* terrain,
+		Camera* camera, FMODAudioSystem* audioSystem, Voronoi::VoronoiIslands* islands);
+
+	// Movement and camera
 	void update(float deltaTime, Input* input, TerrainManipulation* terrain);
-	void resetParams();
-	void setPosition(float x, float y, float z);
 	void handleMouseLook(Input* input, float deltaTime, HWND hwnd, int winW, int winH);
 
-	XMFLOAT3 getCameraPosition() const {
-		return XMFLOAT3(position.x, position.y + camEyeHeight, position.z);
-	}
+	// Gameplay systems
+	void handleSonar(Input* input, FMODAudioSystem* audioSystem);
+	void handlePlayModeReset(Voronoi::VoronoiIslands* islands, TerrainManipulation* terrain, Camera* camera);
 
-	XMFLOAT3 getCameraTarget() const {
-		float yawRad = XMConvertToRadians(rotation.y);
-		float pitchRad = XMConvertToRadians(rotation.x);
-		float forwardX = sinf(yawRad) * cosf(pitchRad);
-		float forwardY = sinf(pitchRad);
-		float forwardZ = cosf(yawRad) * cosf(pitchRad);
-		return XMFLOAT3(position.x + forwardX, position.y + camEyeHeight + forwardY, position.z + forwardZ);
-	}
+	// State management
+	void resetParams();
+	void setPosition(float x, float y, float z);
+
+	// Getters
+	const XMFLOAT3& getPosition() const { return position; }
+	const XMFLOAT3& getRotation() const { return rotation; }
+	XMFLOAT3 getCameraPosition() const { return { position.x, position.y + camEyeHeight, position.z }; }
+	XMFLOAT3 getCameraTarget() const;
 
 private:
-	XMFLOAT3 position;
-	XMFLOAT3 velocity;
-	XMFLOAT3 rotation;
-	float speed;
-	float camEyeHeight;
-	float jumpForce;
-	float mouseSensitivity;
-	bool isJumping;
+	// Helper methods
+	void updateCameraPosition(Camera* camera);
+	void handleTerrainCollision(float deltaTime, TerrainManipulation* terrain, Camera* camera);
+	bool isGrounded(TerrainManipulation* terrain) const;
+
+	// Member variables
+	SceneData* sceneData = nullptr;
+	XMFLOAT3 position = { 58.881f, 8.507f, 68.2f };
+	XMFLOAT3 velocity = { 0.f, 0.f, 0.f };
+	XMFLOAT3 rotation = { 0.f, 0.f, 0.f };
+
+	// Configuration
+	float speed = 20.0f;
+	float camEyeHeight = 3.f;
+	float jumpForce = 7.0f;
+	float mouseSensitivity = 0.5f;
+	bool isJumping = false;
 };

@@ -1,10 +1,7 @@
 #include "Player.h"
 #include <algorithm>
 
-static float distPointLineSegment2D(
-	float px, float pz,
-	float x0, float z0,
-	float x1, float z1)
+static float distPointLineSegment2D(float px, float pz, float x0, float z0, float x1, float z1)
 {
 	float vx = x1 - x0, vz = z1 - z0;
 	float wx = px - x0, wz = pz - z0;
@@ -30,12 +27,46 @@ Player::Player() :
 	camEyeHeight(1.8f),
 	jumpForce(7.0f),
 	mouseSensitivity(0.5f),
-	isJumping(false)
+	isJumping(false),
+	sceneData(nullptr)
 {
 }
 
+void Player::initialize(SceneData* sceneData) {
+	this->sceneData = sceneData;
+	if (sceneData) {
+		sceneData->playerData.firstTimeInPlayMode = true;
+		camEyeHeight = sceneData->playerData.cameraEyeHeight;
+	}
+}
+
+XMFLOAT3 Player::getCameraTarget() const {
+	const float yawRad = XMConvertToRadians(rotation.y);
+	const float pitchRad = XMConvertToRadians(rotation.x);
+	const XMFLOAT3 camPos = getCameraPosition();
+
+	return {
+		camPos.x + sinf(yawRad) * cosf(pitchRad),
+		camPos.y + sinf(pitchRad),
+		camPos.z + cosf(yawRad) * cosf(pitchRad)
+	};
+}
+
+bool Player::isGrounded(TerrainManipulation* terrain) const {
+	const bool isOnTerrain = terrain->isOnTerrain(position.x, position.z);
+	const float terrainHeight = isOnTerrain ? terrain->getHeight(position.x, position.z) : -50.f;
+	const bool terrainGrounded = isOnTerrain && (position.y <= (terrainHeight + camEyeHeight + 0.1f));
+
+	const bool isOnBridge = terrain->onBridge(position.x, position.z);
+	const float bridgeHeight = isOnBridge ? terrain->getHeight(position.x, position.z) : -50.f;
+	const bool bridgeGrounded = isOnBridge && (position.y <= (bridgeHeight + camEyeHeight + 0.1f));
+
+	return terrainGrounded || bridgeGrounded;
+}
+
 void Player::update(float deltaTime, Input* input, TerrainManipulation* terrain) {
-	XMFLOAT3 moveInput = { 0.f, 0.f, 0.f };
+	// Process movement input
+	XMFLOAT3 moveInput = {};
 	if (input->isKeyDown('W')) moveInput.z += 1.0f;
 	if (input->isKeyDown('S')) moveInput.z -= 1.0f;
 	if (input->isKeyDown('A')) moveInput.x -= 1.0f;
@@ -45,97 +76,177 @@ void Player::update(float deltaTime, Input* input, TerrainManipulation* terrain)
 		isJumping = true;
 	}
 
+	// Normalize and rotate movement vector
 	XMVECTOR moveVec = XMLoadFloat3(&moveInput);
 	if (!XMVector3Equal(moveVec, XMVectorZero())) {
-		moveVec = XMVector3Normalize(moveVec);
+		moveVec = XMVector3Normalize(XMVector3Transform(
+			moveVec,
+			XMMatrixRotationY(XMConvertToRadians(rotation.y))
+		));
 		XMStoreFloat3(&moveInput, moveVec);
 	}
 
-	XMMATRIX rotMatrix = XMMatrixRotationY(XMConvertToRadians(rotation.y));
-	XMVECTOR rotatedMove = XMVector3Transform(moveVec, rotMatrix);
-	XMFLOAT3 worldMove;
-	XMStoreFloat3(&worldMove, rotatedMove);
-
-	bool isOnTerrain = terrain->isOnTerrain(position.x, position.z);
-	float terrainHeight = isOnTerrain ? terrain->getHeight(position.x, position.z) : -50.f;
-	bool isGrounded = isOnTerrain && (position.y <= (terrainHeight + camEyeHeight + 0.1f));
-
-	bool isOnBridge = terrain->onBridge(position.x, position.z);
-	float bridgeHeight = isOnBridge ? terrain->getHeight(position.x, position.z) : -50.f;
-	bool isGrounded2 = isOnBridge && (position.y <= (bridgeHeight + camEyeHeight + 0.1f));
-
-	if (!isGrounded && !isGrounded2) {
+	// Physics update
+	const bool grounded = isGrounded(terrain);
+	if (!grounded) {
+		// Airborne physics
 		velocity.y -= 15.8f * deltaTime;
-
-		// Allow control in air (weaker)
-		const float airControlFactor = 0.5f;
-		velocity.x += worldMove.x * speed * airControlFactor * deltaTime;
-		velocity.z += worldMove.z * speed * airControlFactor * deltaTime;
-
-		// Stronger air drag to reduce sliding
-		velocity.x *= 0.92f;
+		constexpr float airControlFactor = 0.5f;
+		velocity.x += moveInput.x * speed * airControlFactor * deltaTime;
+		velocity.z += moveInput.z * speed * airControlFactor * deltaTime;
+		velocity.x *= 0.92f; // Air resistance
 		velocity.z *= 0.92f;
 	}
 	else {
+		// Grounded physics
 		if (velocity.y < 0.0f) {
 			velocity.y = 0.0f;
 			isJumping = false;
 		}
 
 		if (moveInput.x != 0.0f || moveInput.z != 0.0f) {
-			velocity.x = worldMove.x * speed;
-			velocity.z = worldMove.z * speed;
+			velocity.x = moveInput.x * speed;
+			velocity.z = moveInput.z * speed;
 		}
 		else {
-			// Ground friction
-			velocity.x *= 0.6f;
-			velocity.z *= 0.6f;
+			velocity.x *= 0.8f; // Ground friction
+			velocity.z *= 0.8f;
 		}
 	}
 
-	XMFLOAT3 newPos = {
-		position.x + velocity.x * deltaTime,
-		position.y + velocity.y * deltaTime,
-		position.z + velocity.z * deltaTime
-	};
+	// Update position
+	position.x += velocity.x * deltaTime;
+	position.y += velocity.y * deltaTime;
+	position.z += velocity.z * deltaTime;
 
-	setPosition(newPos.x, newPos.y, newPos.z);
-	if (position.y < -50.0f) resetParams();
+	if (position.y < -50.0f) {
+		resetParams();
+	}
+}
+void Player::updatePlayer(float deltaTime, Input* input, TerrainManipulation* terrain, Camera* camera, FMODAudioSystem* audioSystem, Voronoi::VoronoiIslands* islands)
+{
+	update(deltaTime, input, terrain);
+	updateCameraPosition(camera);
+	handleTerrainCollision(deltaTime, terrain, camera);
+
+	// Update audio listener
+	const XMFLOAT3 camPos = camera->getPosition();
+	const XMFLOAT3 camForward = camera->getForward();
+	const XMFLOAT3 camUp = camera->getUp();
+	audioSystem->updateListenerPosition(camPos, camForward, camUp);
 }
 
-void Player::handleMouseLook(Input* input, float deltaTime, HWND hwnd, int winW, int winH) {
-	POINT p;
-	GetCursorPos(&p);
-	ScreenToClient(hwnd, &p);
+void Player::handleMouseLook(Input* input, float deltaTime, HWND hwnd, int winW, int winH)
+{
+	POINT cursorPos;
+	GetCursorPos(&cursorPos);
+	ScreenToClient(hwnd, &cursorPos);
 
-	int centerX = winW / 2;
-	int centerY = winH / 2;
-	float dx = float(p.x - centerX);
-	float dy = float(p.y - centerY);
+	const int centerX = winW / 2;
+	const int centerY = winH / 2;
+	const float dx = static_cast<float>(cursorPos.x - centerX);
+	const float dy = static_cast<float>(cursorPos.y - centerY);
 
 	rotation.y += dx * mouseSensitivity;
-	rotation.x += dy * mouseSensitivity;
-	rotation.x = clamp(rotation.x, -89.0f, 89.0f);
+	rotation.x = clamp(rotation.x + dy * mouseSensitivity, -89.0f, 89.0f);
 
-	POINT warp = { centerX, centerY };
-	ClientToScreen(hwnd, &warp);
-	SetCursorPos(warp.x, warp.y);
+	// Reset cursor to center
+	POINT center = { centerX, centerY };
+	ClientToScreen(hwnd, &center);
+	SetCursorPos(center.x, center.y);
 }
 
-void Player::resetParams() {
+void Player::handleTerrainCollision(float deltaTime, TerrainManipulation* terrain, Camera* camera)
+{
+	XMFLOAT3 camPos = camera->getPosition();
+
+	if (terrain->isOnTerrain(camPos.x, camPos.z)) {
+		const float terrainY = terrain->getHeight(camPos.x, camPos.z);
+		const float minY = terrainY + camEyeHeight;
+
+		if (camPos.y < minY) {
+			camPos.y = minY;
+
+			// Handle sliding
+			const XMFLOAT3 normal = terrain->getNormal(camPos.x, camPos.z);
+			const XMVECTOR N = XMLoadFloat3(&normal);
+			const XMVECTOR velocityVec = XMLoadFloat3(&sceneData->playerData.cameraVelocity);
+
+			// Calculate projection
+			const float dotProduct = XMVectorGetX(XMVector3Dot(velocityVec, N));
+			const XMVECTOR proj = XMVectorScale(N, dotProduct);
+
+			// Calculate slide velocity
+			const XMVECTOR slideVel = XMVectorSubtract(velocityVec, proj);
+			XMFLOAT3 sv;
+			XMStoreFloat3(&sv, slideVel);
+
+			// Update position
+			camPos.x = sceneData->playerData.lastCameraPosition.x + sv.x * deltaTime;
+			camPos.z = sceneData->playerData.lastCameraPosition.z + sv.z * deltaTime;
+
+			// Apply changes
+			camera->setPosition(camPos.x, camPos.y, camPos.z);
+			XMStoreFloat3(&sceneData->playerData.cameraVelocity, slideVel);
+		}
+	}
+
+	// Always update last position
+	sceneData->playerData.lastCameraPosition = camPos;
+}
+
+void Player::handlePlayModeReset(Voronoi::VoronoiIslands* islands, TerrainManipulation* terrain, Camera* camera)
+{
+	if (!sceneData) return;
+
+	if (sceneData->playerData.firstTimeInPlayMode || position.y < -50.0f) {
+		const XMFLOAT3 islandPos = islands->GetRandomIslandPosition();
+		const float terrainHeight = terrain->getHeight(islandPos.x, islandPos.z);
+
+		setPosition(islandPos.x, terrainHeight + 2.0f, islandPos.z);
+
+		const XMFLOAT3 camPos = getCameraPosition();
+		camera->setPosition(camPos.x, camPos.y + camEyeHeight, camPos.z);
+		camera->setRotation(0.0f, 0.0f, 0.0f);
+
+		if (sceneData->playerData.firstTimeInPlayMode) {
+			sceneData->playerData.firstTimeInPlayMode = false;
+		}
+	}
+}
+
+void Player::handleSonar(Input* input, FMODAudioSystem* audioSystem)
+{
+	if (!sceneData || !input->isKeyDown('C') || sceneData->sonarData.isActive) {
+		return;
+	}
+
+	sceneData->sonarData = { true,0.0f,sceneData->sonarData.sonarDuration,position };
+	sceneData->ghostData.sonarTargetPosition = sceneData->sonarData.sonarOrigin;
+	sceneData->ghostData.respondingToSonar = true;
+	sceneData->ghostData.sonarResponseTimer = 0.0f;
+	sceneData->tessMesh = true;
+
+	audioSystem->playOneShot("event:/EchoPulse");
+	audioSystem->dimBGM(FMODAudioSystem::ECHO_EFFECT_DURATION);
+}
+
+void Player::updateCameraPosition(Camera* camera)
+{
+	const XMFLOAT3 camPos = getCameraPosition();
+	camera->setPosition(camPos.x, camPos.y + camEyeHeight, camPos.z);
+	camera->setRotation(rotation.x, rotation.y, 0.0f);
+	camera->update();
+}
+
+void Player::resetParams()
+{
 	velocity = { 0.f, 0.f, 0.f };
 	rotation = { 0.f, 0.f, 0.f };
 	isJumping = false;
 }
 
-void Player::setPosition(float x, float y, float z) {
-	position = XMFLOAT3(x, y, z);
-}
-
-XMFLOAT3 Player::getPosition() const {
-	return position;
-}
-
-XMFLOAT3 Player::getRotation() const {
-	return rotation;
+void Player::setPosition(float x, float y, float z)
+{
+	position = { x, y, z };
 }

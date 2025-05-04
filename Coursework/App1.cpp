@@ -77,8 +77,7 @@ void App1::renderToTexture() {
 	// Set up the lights from Scene Data
 	XMFLOAT3 playerPos = player->getPosition();
 
-	// Update point light and firefly position to player's position
-	sceneData->setFireflyPosition(playerPos.x, playerPos.y - 1.f, playerPos.z);
+	// Update point light to player's position
 	sceneData->setPointLight1Position(playerPos.x, playerPos.y + 2.f, playerPos.z);
 
 	spotLight->setDiffuseColour(sceneData->lightData.diffuseColour[0], sceneData->lightData.diffuseColour[1], sceneData->lightData.diffuseColour[2], sceneData->lightData.diffuseColour[3]);
@@ -120,7 +119,7 @@ void App1::finalRenderToScreen() {
 
 	screenEffects->sendData(renderer->getDeviceContext());
 
-	if (useChromaticAberration) applyChromaticAberration(worldMatrix, orthoViewMatrix, orthoMatrix);
+	if (sceneData->chromaticAberrationData.enabled) applyChromaticAberration(worldMatrix, orthoViewMatrix, orthoMatrix);
 	else {
 		simpleTexture->setShaderParameters(renderer->getDeviceContext(), worldMatrix, orthoViewMatrix, orthoMatrix, renderAberration->getShaderResourceView());
 		simpleTexture->render(renderer->getDeviceContext(), screenEffects->getIndexCount());
@@ -147,265 +146,242 @@ void App1::renderPlayer() {
 	float dt = timer->getTime();
 	if (dt < 1e-6f) dt = 0.016f;
 
-	// --- compute velocity ---
-	XMFLOAT3 curPos = camera->getPosition();
-	XMFLOAT3 vel;
-	vel.x = (curPos.x - m_lastCamPos.x) / dt;
-	vel.y = (curPos.y - m_lastCamPos.y) / dt;
-	vel.z = (curPos.z - m_lastCamPos.z) / dt;
-	m_camVelocity = XMLoadFloat3(&vel);
-
-	// --- collision with terrain (sliding) ---
-	float terrainY = terrainShader->getHeight(curPos.x, curPos.z);
-	float minY = terrainY + m_camEyeHeight;
-
-	if (curPos.y < minY) {
-		curPos.y = minY;
-		XMFLOAT3 normal = terrainShader->getNormal(curPos.x, curPos.z);
-		XMVECTOR N = XMLoadFloat3(&normal);
-		XMVECTOR proj = XMVectorScale(N, XMVectorGetX(XMVector3Dot(m_camVelocity, N)));
-		XMVECTOR slideVel = XMVectorSubtract(m_camVelocity, proj);
-
-		XMFLOAT3 sv;
-		XMStoreFloat3(&sv, slideVel);
-		curPos.x = m_lastCamPos.x + sv.x * dt;
-		curPos.z = m_lastCamPos.z + sv.z * dt;
-
-		camera->setPosition(curPos.x, curPos.y, curPos.z);
-		m_camVelocity = slideVel;
-	}
-
-	m_lastCamPos = curPos;
-
 	if (currentMode == AppMode::Play) {
 
-		XMFLOAT3 islandPos = voronoiIslands->GetRandomIslandPosition();
-		float terrainHeight = terrainShader->getHeight(islandPos.x, islandPos.z);
-		XMFLOAT3 camPos = player->getCameraPosition();
+		ShowCursor(FALSE);
 
-		if (firstTimeInPlayMode) {
-			player->setPosition(islandPos.x, terrainHeight + 2.0f, islandPos.z);
-			camera->setPosition(camPos.x, camPos.y + 5.f, camPos.z);
-			camera->setRotation(0.0f, 0.0f, 0.0f);
-			firstTimeInPlayMode = false;
-			audioSystem.playBGM1();
-			startedBGM = true;
-		}
-		if (player->getPosition().y < -50.0f) {
-			player->setPosition(islandPos.x, terrainHeight + 2.0f, islandPos.z);
-			camera->setPosition(camPos.x, camPos.y + 5.f, camPos.z);
-			camera->setRotation(0.0f, 0.0f, 0.0f);
-		}
-
-		player->update(dt, input, terrainShader);
-		player->handleMouseLook(input, dt, this->wnd, this->sceneWidth, this->sceneHeight);
-
-		// Update camera from player
-		camera->setPosition(camPos.x, camPos.y, camPos.z);
-		camera->setRotation(player->getRotation().x, player->getRotation().y, 0.0f);
-		camera->update();
-
-		// Update audio listener position
-		XMFLOAT3 camForward = camera->getForward();
-		XMFLOAT3 camUp = camera->getUp();
-		audioSystem.updateListenerPosition(camPos, camForward, camUp);
-
-		audioSystem.playGhostWhisper(ghostPosition);
-
-		if (input->isKeyDown('C') && !sonarActive) {
-			sonarActive = true;
-			sceneData->tessMesh = true;
-			sonarTime = 0.0f;
-			sonarOrigin = player->getPosition();
-			sonarTargetPosition = sonarOrigin;
-			respondingToSonar = true;
-			sonarResponseTimer = 0.0f;
-
-			audioSystem.playOneShot("event:/EchoPulse");
-			audioSystem.dimBGM(audioSystem.ECHO_EFFECT_DURATION);
-		}
+		player->updatePlayer(dt, input, terrainShader, camera, &audioSystem, voronoiIslands.get());
+		player->handleMouseLook(input, dt, hwnd, sceneWidth, sceneHeight);
+		player->handlePlayModeReset(voronoiIslands.get(), terrainShader, camera);
+		player->handleSonar(input, &audioSystem);
+		audioSystem.playGhostWhisper(sceneData->ghostData.position);
+		audioSystem.playBGM1();
 	}
 	else {
-		camera->update();
-		if (startedBGM) {
+		ShowCursor(TRUE);
+
+		if (sceneData->audioState.bgmStarted) {
 			audioSystem.stopBGM1();
-			startedBGM = false;
+			sceneData->audioState.bgmStarted = false;
 		}
 	}
 
-	if (sonarActive) {
-		sonarTime += timer->getTime();
-		if (sonarTime >= sonarDuration) {
-			sonarActive = false;
+	// Handle sonar timer
+	if (sceneData->sonarData.isActive) {
+		sceneData->sonarData.sonarTime += timer->getTime();
+		if (sceneData->sonarData.sonarTime >= sceneData->sonarData.sonarDuration) {
+			sceneData->sonarData.isActive = false;
 			sceneData->tessMesh = false;
 			wireframeToggle = false;
 		}
 	}
 }
 
+
 void App1::renderGhost(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix) {
 	float deltaTime = timer->getTime();
 
-	// Only decrement lifetime if not responding to sonar
-	if (!respondingToSonar) ghostLifetime -= deltaTime;
+	if (!sceneData->ghostData.respondingToSonar) sceneData->ghostData.aliveTime -= deltaTime;
 
-	if (!ghostActive || ghostLifetime <= 0.f) {
-		if (audioSystem.isWhisperPlaying()) audioSystem.stopGhostWhisper();
+	if (!sceneData->ghostData.isActive || sceneData->ghostData.maxLifetime <= 0.f) handleGhostRespawn();
+	else {
+		if (sceneData->ghostData.respondingToSonar) updateSonarResponse(deltaTime);
+		else handleNormalWandering(deltaTime);
 
-		// Don't respawn if we're in the middle of a sonar response
-		if (!respondingToSonar) {
-			const auto& islands = voronoiIslands->GetIslands();
-			if (!islands.empty()) {
-				currentIslandIndex = rand() % islands.size();
-				const auto& island = islands[currentIslandIndex];
+		updateGhostPosition(deltaTime);
+		updateChromaticAberration();
+	}
 
-				ghostPosition = XMFLOAT3{ island.position.x + (rand() % 10 - 5), island.position.y + 3.f, island.position.z + (rand() % 10 - 5) };
-				ghostVelocity = XMFLOAT3{ randomFloat(-1.f, 1.f) * 2.f, 0.f, randomFloat(-1.f, 1.f) * 2.f };
-				ghostLifetime = ghostMaxLifetime;
-				ghostActive = true;
+	if (sceneData->ghostData.isActive) {
+		renderGhostModel(worldMatrix, viewMatrix, projectionMatrix, deltaTime);
+		updateGhostAudio(deltaTime);
+	}
 
-				// Reset direction change timing
-				directionChangeTimer = 0.0f;
-				nextDirectionChangeTime = randomFloat(1.0f, 2.0f);
-			}
+	if (!sceneData->ghostData.isActive && audioSystem.isWhisperPlaying()) audioSystem.stopGhostWhisper();
+}
+
+void App1::handleGhostRespawn() {
+	if (audioSystem.isWhisperPlaying()) {
+		audioSystem.stopGhostWhisper();
+	}
+
+	if (!sceneData->ghostData.respondingToSonar) {
+		const auto& islands = voronoiIslands->GetIslands();
+		if (!islands.empty()) {
+			sceneData->ghostData.currentIslandIndex = rand() % islands.size();
+			const auto& island = islands[sceneData->ghostData.currentIslandIndex];
+
+			sceneData->ghostData.position = XMFLOAT3{ island.position.x + (rand() % 10 - 5),island.position.y + 3.f,island.position.z + (rand() % 10 - 5) };
+			sceneData->ghostData.velocity = XMFLOAT3{ randomFloat(-1.f, 1.f) * 2.f,0.f,randomFloat(-1.f, 1.f) * 2.f };
+			sceneData->ghostData.aliveTime = sceneData->ghostData.maxLifetime;
+			sceneData->ghostData.isActive = true;
+
+			sceneData->ghostData.directionChangeTimer = 0.0f;
+			sceneData->ghostData.nextDirectionChangeTime = randomFloat(1.0f, 2.0f);
+		}
+	}
+}
+
+void App1::updateSonarResponse(float deltaTime) {
+	if (!sceneData->ghostData.respondingToSonar) return;
+
+	sceneData->ghostData.sonarResponseTimer += deltaTime;
+
+	XMVECTOR targetPos = XMLoadFloat3(&sceneData->ghostData.sonarTargetPosition);
+	XMVECTOR currentPos = XMLoadFloat3(&sceneData->ghostData.position);
+	XMVECTOR toTarget = XMVectorSubtract(targetPos, currentPos);
+	float distance = XMVectorGetX(XMVector3Length(toTarget));
+
+	// If ghost has reached target or sonar duration expired
+	if (distance < 0.5f || sceneData->ghostData.sonarResponseTimer >= sceneData->sonarData.sonarDuration) {
+		// Store the ghost's state before sonar response
+		static XMFLOAT3 preSonarVelocity;
+		static float preSonarDirectionChangeTimer;
+		static float preSonarNextDirectionChangeTime;
+
+		if (distance < 0.5f) { // Only reached target
+			// Save current state before changing
+			preSonarVelocity = sceneData->ghostData.velocity;
+			preSonarDirectionChangeTimer = sceneData->ghostData.directionChangeTimer;
+			preSonarNextDirectionChangeTime = sceneData->ghostData.nextDirectionChangeTime;
+		}
+
+		// Reset sonar response state
+		sceneData->ghostData.respondingToSonar = false;
+		sceneData->ghostData.sonarResponseTimer = 0.0f;
+
+		// Respawn ghost to a random island position
+		const auto& islands = voronoiIslands->GetIslands();
+		if (!islands.empty()) {
+			sceneData->ghostData.currentIslandIndex = rand() % islands.size();
+			const auto& island = islands[sceneData->ghostData.currentIslandIndex];
+
+			// Set new position but restore previous movement behavior
+			sceneData->ghostData.position = XMFLOAT3{
+				island.position.x + (rand() % 10 - 5),
+				island.position.y + 3.f,
+				island.position.z + (rand() % 10 - 5)
+			};
+
+			// Restore previous velocity and wandering settings
+			sceneData->ghostData.velocity = preSonarVelocity;
+			sceneData->ghostData.directionChangeTimer = preSonarDirectionChangeTimer;
+			sceneData->ghostData.nextDirectionChangeTime = preSonarNextDirectionChangeTime;
+
+			// Reset wandering timer to give immediate new direction
+			sceneData->ghostData.directionChangeTimer = 0.0f;
+			sceneData->ghostData.nextDirectionChangeTime = 0.0f;
 		}
 	}
 	else {
-		if (respondingToSonar) {
-			sonarResponseTimer += deltaTime;
+		// Continue moving toward target
+		float remainingTime = sceneData->sonarData.sonarDuration - sceneData->ghostData.sonarResponseTimer;
+		float requiredSpeed = (remainingTime > 0) ? (distance / remainingTime) : 0.f;
 
-			// Calculate remaining distance and time
-			XMVECTOR targetPos = XMLoadFloat3(&sonarTargetPosition);
-			XMVECTOR currentPos = XMLoadFloat3(&ghostPosition);
-			XMVECTOR toTarget = XMVectorSubtract(targetPos, currentPos);
-			float distance = XMVectorGetX(XMVector3Length(toTarget));
-			float remainingTime = sonarResponseDuration - sonarResponseTimer;
+		XMVECTOR direction = XMVector3Normalize(toTarget);
+		XMStoreFloat3(&sceneData->ghostData.velocity, XMVectorScale(direction, requiredSpeed));
+	}
+}
 
-			// Calculate required speed to reach target in remaining time
-			float requiredSpeed = (remainingTime > 0) ? (distance / remainingTime) : 0.f;
+void App1::handleNormalWandering(float deltaTime) {
+	const auto& island = voronoiIslands->GetIslands()[sceneData->ghostData.currentIslandIndex];
+	float halfSize = 25.0f;
+	float minX = island.position.x - halfSize;
+	float maxX = island.position.x + halfSize;
+	float minZ = island.position.z - halfSize;
+	float maxZ = island.position.z + halfSize;
 
-			// If we're very close or time is up, snap to target
-			if (distance < 0.1f || remainingTime <= 0) {
-				ghostPosition = sonarTargetPosition;
-				respondingToSonar = false;
-			}
-			else {
-				// Move toward target at exactly the required speed
-				XMVECTOR direction = XMVector3Normalize(toTarget);
-				XMStoreFloat3(&ghostVelocity, XMVectorScale(direction, requiredSpeed));
-			}
-		}
-		else {
-			// Normal wandering behavior
-			const auto& island = voronoiIslands->GetIslands()[currentIslandIndex];
-			float halfSize = 25.0f;
-
-			float minX = island.position.x - halfSize;
-			float maxX = island.position.x + halfSize;
-			float minZ = island.position.z - halfSize;
-			float maxZ = island.position.z + halfSize;
-
-			// If ghost is near edge, bounce/change direction
-			bool bounced = false;
-
-			if (ghostPosition.x < minX || ghostPosition.x > maxX) {
-				ghostVelocity.x *= -1.f;
-				ghostPosition.x = max(minX, min(maxX, ghostPosition.x));
-				bounced = true;
-			}
-			if (ghostPosition.z < minZ || ghostPosition.z > maxZ) {
-				ghostVelocity.z *= -1.f;
-				ghostPosition.z = max(minZ, min(maxZ, ghostPosition.z));
-				bounced = true;
-			}
-
-			// Optionally refresh direction timer after bounce
-			if (bounced) {
-				directionChangeTimer = 0.0f;
-				nextDirectionChangeTime = randomFloat(1.0f, 2.0f);
-			}
-
-			// Randomly change direction every few seconds
-			directionChangeTimer += deltaTime;
-			if (directionChangeTimer >= nextDirectionChangeTime) {
-				ghostVelocity = XMFLOAT3{ randomFloat(5.f, 7.f) * 2.f, 0.f, randomFloat(5.f, 7.f) * 2.f };
-				directionChangeTimer = 0.0f;
-				nextDirectionChangeTime = randomFloat(1.0f, 4.0f);
-			}
-		}
-
-		// Update position
-		ghostPosition.x += ghostVelocity.x * deltaTime;
-		ghostPosition.z += ghostVelocity.z * deltaTime;
-
-		//audioSystem.updateGhostPosition(ghostPosition);
-
-		// Inside renderGhost(), after updating ghostPosition:
-		XMFLOAT3 playerPos = player->getPosition();
-		XMVECTOR ghostPos = XMLoadFloat3(&ghostPosition);
-		XMVECTOR playerPosVec = XMLoadFloat3(&playerPos);
-		XMVECTOR distanceVec = XMVector3Length(XMVectorSubtract(ghostPos, playerPosVec));
-		float distance = XMVectorGetX(distanceVec);
-
-		// Enable chromatic aberration if ghost is within 50.0f
-		if (distance <= 50.0f) {
-			useChromaticAberration = true;
-			// Increase intensity as ghost gets closer (optional)
-			chromaticAberrationIntensity = maxChromaticAberration * (1.0f - (distance / 50.0f));
-		}
-		else {
-			useChromaticAberration = false;
-			chromaticAberrationIntensity = 0.0f;
-		}
+	bool bounced = handleBoundaryBounce(minX, maxX, minZ, maxZ);
+	if (bounced) {
+		sceneData->ghostData.directionChangeTimer = 0.0f;
+		sceneData->ghostData.nextDirectionChangeTime = randomFloat(5.0f, 10.0f);
 	}
 
-	if (ghostActive) {
+	sceneData->ghostData.directionChangeTimer += deltaTime;
+	if (sceneData->ghostData.directionChangeTimer >= sceneData->ghostData.nextDirectionChangeTime) {
+		updateWanderingDirection();
+		sceneData->ghostData.directionChangeTimer = 0.0f;
+		sceneData->ghostData.nextDirectionChangeTime = randomFloat(5.0f, 10.0f);
+	}
+}
 
-		XMFLOAT3 ghostScreenPos;
-		XMVECTOR ghostPos = XMLoadFloat3(&ghostPosition);
-		XMMATRIX viewProj = viewMatrix * projectionMatrix;
-		XMVECTOR screenPos = XMVector3Project(ghostPos, 0, 0, sceneWidth, sceneHeight, 0.0f, 1.0f, projectionMatrix, viewMatrix, XMMatrixIdentity());
+bool App1::handleBoundaryBounce(float minX, float maxX, float minZ, float maxZ) {
+	bool bounced = false;
 
-		XMStoreFloat3(&ghostScreenPos, screenPos);
-
-		// Normalize screen coordinates (0-1 range)
-		ghostScreenPos.x = ghostScreenPos.x / sceneWidth;
-		ghostScreenPos.y = ghostScreenPos.y / sceneHeight;
-
-		// Calculate distance from camera to ghost (normalized 0-1)
-		XMFLOAT3 camPos = camera->getPosition();
-		XMVECTOR camPosVec = XMLoadFloat3(&camPos);
-		XMVECTOR distanceVec = XMVector3Length(XMVectorSubtract(ghostPos, camPosVec));
-		float maxDistance = 50.0f; // Max distance for effect
-		ghostDistance = 1.0f - min(1.0f, XMVectorGetX(distanceVec) / maxDistance);
-
-		// Time value for shader animations
-		timeCalc += deltaTime;
-
-		// Effect intensity based on distance (inverse relationship)
-		effectIntensity = chromaticAberrationIntensity;
-
-		// Chromatic offset (direction and magnitude)
-		// Create a subtle offset that changes over time
-		float offsetAngle = timeCalc * 2.0f; // Rotate offset over time
-		float offsetMagnitude = effectIntensity * 0.05f; // Scale with intensity
-
-		offsets.x = cos(offsetAngle) * offsetMagnitude;
-		offsets.y = sin(offsetAngle) * offsetMagnitude;
-
-		XMMATRIX ghostWorldMatrix = XMMatrixTranslation(ghostPosition.x, ghostPosition.y, ghostPosition.z);
-
-		ghost->sendData(renderer->getDeviceContext());
-		ghostShader->setShaderParameters(renderer->getDeviceContext(), ghostWorldMatrix, viewMatrix, projectionMatrix, textureMgr->getTexture(L"ghost"), camera, spotLight, directionalLight, sceneData);
-		ghostShader->render(renderer->getDeviceContext(), ghost->getIndexCount());
-
-		// Update audio effects
-		audioSystem.updateGhostPosition(ghostPosition);
-		audioSystem.updateGhostWhisperVolume(camera->getPosition());
-		audioSystem.updateGhostEffects(deltaTime, camera->getPosition());
+	if (sceneData->ghostData.position.x < minX || sceneData->ghostData.position.x > maxX) {
+		sceneData->ghostData.velocity.x *= -1.f;
+		sceneData->ghostData.position.x = max(minX, min(maxX, sceneData->ghostData.position.x));
+		bounced = true;
+	}
+	if (sceneData->ghostData.position.z < minZ || sceneData->ghostData.position.z > maxZ) {
+		sceneData->ghostData.velocity.z *= -1.f;
+		sceneData->ghostData.position.z = max(minZ, min(maxZ, sceneData->ghostData.position.z));
+		bounced = true;
 	}
 
-	if (!ghostActive && audioSystem.isWhisperPlaying()) audioSystem.stopGhostWhisper();
+	return bounced;
+}
+
+void App1::updateWanderingDirection() {
+	sceneData->ghostData.velocity = XMFLOAT3{ randomFloat(5.f, 8.f), 0.f, randomFloat(5.f, 8.f) };
+}
+
+void App1::updateGhostPosition(float deltaTime) {
+	sceneData->ghostData.position.x += sceneData->ghostData.velocity.x * deltaTime;
+	sceneData->ghostData.position.z += sceneData->ghostData.velocity.z * deltaTime;
+}
+
+void App1::updateChromaticAberration() {
+	XMFLOAT3 playerPos = player->getPosition();
+	XMVECTOR ghostPos = XMLoadFloat3(&sceneData->ghostData.position);
+	XMVECTOR playerPosVec = XMLoadFloat3(&playerPos);
+	float distance = XMVectorGetX(XMVector3Length(XMVectorSubtract(ghostPos, playerPosVec)));
+
+	if (distance <= 50.0f) {
+		sceneData->chromaticAberrationData.enabled = true;
+		sceneData->chromaticAberrationData.intensity = sceneData->chromaticAberrationData.maxIntensity * (1.0f - (distance / 50.0f));
+	}
+	else {
+		sceneData->chromaticAberrationData.enabled = false;
+		sceneData->chromaticAberrationData.intensity = 0.0f;
+	}
+}
+
+void App1::renderGhostModel(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, float deltaTime) {
+	XMFLOAT3 ghostScreenPos;
+	XMVECTOR ghostPos = XMLoadFloat3(&sceneData->ghostData.position);
+	XMMATRIX viewProj = viewMatrix * projectionMatrix;
+	XMVECTOR screenPos = XMVector3Project(ghostPos, 0, 0, sceneWidth, sceneHeight, 0.0f, 1.0f, projectionMatrix, viewMatrix, XMMatrixIdentity());
+	XMStoreFloat3(&ghostScreenPos, screenPos);
+
+	ghostScreenPos.x /= sceneWidth;
+	ghostScreenPos.y /= sceneHeight;
+
+	XMFLOAT3 camPos = camera->getPosition();
+	XMVECTOR camPosVec = XMLoadFloat3(&camPos);
+	XMVECTOR distanceVec = XMVector3Length(XMVectorSubtract(ghostPos, camPosVec));
+	float maxDistance = 50.0f;
+	sceneData->chromaticAberrationData.ghostDistance = 1.0f - min(1.0f, XMVectorGetX(distanceVec) / maxDistance);
+
+	sceneData->chromaticAberrationData.timeCalc += deltaTime;
+	sceneData->chromaticAberrationData.effectIntensity = sceneData->chromaticAberrationData.intensity;
+
+	float offsetAngle = sceneData->chromaticAberrationData.timeCalc * 2.0f;
+	float offsetMagnitude = sceneData->chromaticAberrationData.effectIntensity * 0.05f;
+	sceneData->chromaticAberrationData.offsets.x = cos(offsetAngle) * offsetMagnitude;
+	sceneData->chromaticAberrationData.offsets.y = sin(offsetAngle) * offsetMagnitude;
+
+	XMMATRIX ghostWorldMatrix = XMMatrixTranslation(sceneData->ghostData.position.x, sceneData->ghostData.position.y, sceneData->ghostData.position.z);
+	ghost->sendData(renderer->getDeviceContext());
+	ghostShader->setShaderParameters(renderer->getDeviceContext(), ghostWorldMatrix, viewMatrix, projectionMatrix,
+		textureMgr->getTexture(L"ghost"), camera, spotLight, directionalLight, sceneData);
+	ghostShader->render(renderer->getDeviceContext(), ghost->getIndexCount());
+}
+
+void App1::updateGhostAudio(float deltaTime) {
+	audioSystem.updateGhostPosition(sceneData->ghostData.position);
+	audioSystem.updateGhostWhisperVolume(camera->getPosition());
+	audioSystem.updateGhostEffects(deltaTime, camera->getPosition());
 }
 
 
@@ -438,11 +414,11 @@ void App1::getShadowDepthMap(const XMMATRIX& worldMatrix, const XMMATRIX& viewMa
 		// 3. Apply Depth Shader to the meshes
 
 		// Ghost
-		XMMATRIX ghostWorldMatrix = XMMatrixTranslation(sceneData->fireflyData.objPos[0], sceneData->fireflyData.objPos[1], sceneData->fireflyData.objPos[2]) * worldMatrix;
+		/*XMMATRIX ghostWorldMatrix = XMMatrixTranslation(sceneData->fireflyData.objPos[0], sceneData->fireflyData.objPos[1], sceneData->fireflyData.objPos[2]) * worldMatrix;
 
 		ghost->sendData(renderer->getDeviceContext());
 		depthShader->setShaderParameters(renderer->getDeviceContext(), ghostWorldMatrix, lightViewMatrix, lightProjectionMatrix);
-		depthShader->render(renderer->getDeviceContext(), ghost->getIndexCount());
+		depthShader->render(renderer->getDeviceContext(), ghost->getIndexCount());*/
 
 		// Terrain - own vertex shader needed to calculate displacements to cast shows correclty on it
 		topTerrain->sendData(renderer->getDeviceContext(), D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
@@ -477,7 +453,6 @@ void App1::finalRender(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, 
 
 		renderTerrain(worldMatrix, viewMatrix, projectionMatrix);
 		renderDome(worldMatrix, viewMatrix, projectionMatrix);
-		renderFirefly(worldMatrix, viewMatrix, projectionMatrix);
 		renderWater(worldMatrix, viewMatrix, projectionMatrix);
 		renderMoon(worldMatrix, viewMatrix, projectionMatrix);
 	}
@@ -491,7 +466,7 @@ void App1::finalRender(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, 
 
 void App1::applyChromaticAberration(const XMMATRIX& worldMatrix, const XMMATRIX& orthoViewMatrix, const XMMATRIX& orthoMatrix)
 {
-	chromaticAberration->setShaderParameters(renderer->getDeviceContext(), worldMatrix, orthoViewMatrix, orthoMatrix, renderAberration->getShaderResourceView(), offsets, ghostScreenPos, ghostDistance, timeCalc, effectIntensity);
+	chromaticAberration->setShaderParameters(renderer->getDeviceContext(), worldMatrix, orthoViewMatrix, orthoMatrix, renderAberration->getShaderResourceView(), sceneData);
 	chromaticAberration->render(renderer->getDeviceContext(), screenEffects->getIndexCount());
 }
 
@@ -528,9 +503,9 @@ void App1::generateIslands(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatr
 	auto& islands = voronoiIslands->GetIslands();
 
 	// Clear existing ambiences if needed
-	if (firstTimeGeneratingIslands) {
+	if (sceneData->firstTimeGeneratingIslands) {
 		audioSystem.stopAllIslandAmbience();
-		firstTimeGeneratingIslands = false;
+		sceneData->firstTimeGeneratingIslands = false;
 	}
 
 	for (auto& island : islands)
@@ -551,14 +526,14 @@ void App1::generateIslands(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatr
 			island.hasAmbience = true;
 		}
 
-		float sonarRadius = sonarMaxRadius * (sonarTime / sonarDuration);
+		float sonarRadius = sceneData->audioState.sonarMaxRadius * (sceneData->sonarData.sonarTime / sceneData->sonarData.sonarDuration);
 
 		// Render island with heightmap
 		topTerrain->sendData(renderer->getDeviceContext(), D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
 		terrainShader->setShaderParameters(
 			renderer->getDeviceContext(),
 			islandWorld, viewMatrix, projectionMatrix,
-			sonarActive, sonarOrigin, sonarRadius,
+			sceneData->sonarData.isActive, sceneData->sonarData.sonarOrigin, sonarRadius,
 			textureMgr->getTexture(L"terrain_heightmapCUT"),
 			textureMgr->getTexture(L"colour_1_heightCUT"),
 			textureMgr->getTexture(L"colour_1"),
@@ -643,13 +618,13 @@ void App1::generateBridges(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatr
 			);
 
 		// Render bridge
-		float sonarRadius = sonarMaxRadius * (sonarTime / sonarDuration);
+		float sonarRadius = sceneData->audioState.sonarMaxRadius * (sceneData->sonarData.sonarTime / sceneData->sonarData.sonarDuration);
 
 		topTerrain->sendData(renderer->getDeviceContext(), D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
 		terrainShader->setShaderParameters(
 			renderer->getDeviceContext(),
 			bridgeWorld, viewMatrix, projectionMatrix,
-			sonarActive, sonarOrigin, sonarRadius,
+			sceneData->sonarData.isActive, sceneData->sonarData.sonarOrigin, sonarRadius,
 			textureMgr->getTexture(L"bridge_texture"),
 			textureMgr->getTexture(L"colour_1_heightCUT"),
 			textureMgr->getTexture(L"colour_1"),
@@ -669,17 +644,6 @@ void App1::renderTerrain(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix
 	generatePickups(worldMatrix, viewMatrix, projectionMatrix);
 
 	if (!wireframeToggle)renderer->setCullOn(true);
-}
-
-void App1::renderFirefly(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix) {
-
-	XMMATRIX fireflyScale = XMMatrixScaling(0.2f, 0.2f, 0.2f);
-	XMMATRIX fireflyTranslate = XMMatrixTranslation(sceneData->fireflyData.objPos[0], sceneData->fireflyData.objPos[1], sceneData->fireflyData.objPos[2]);
-	XMMATRIX ghostWorldMatrix = fireflyScale * fireflyTranslate * worldMatrix;
-
-	ghost->sendData(renderer->getDeviceContext());
-	ghostShader->setShaderParameters(renderer->getDeviceContext(), ghostWorldMatrix, viewMatrix, projectionMatrix, textureMgr->getTexture(L"ghost"), camera, spotLight, directionalLight, sceneData);
-	ghostShader->render(renderer->getDeviceContext(), ghost->getIndexCount());
 }
 
 void App1::renderWater(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix) {
@@ -807,13 +771,13 @@ void App1::gui()
 	ImGui::Separator();
 
 	ImGui::Text("Voronoi Islands");
-	ImGui::SliderInt("Island Count", &islandCount, 2, 6);
+	ImGui::SliderInt("Island Count", &sceneData->islandCount, 2, 6);
 
 	if (ImGui::Button("Regenerate Islands")) {
-		gridSize = max(gridSize, static_cast<int>(islandSize * 2));
-		voronoiIslands = make_unique<Voronoi::VoronoiIslands>(gridSize, islandCount);
+		sceneData->gridSize = max(sceneData->gridSize, static_cast<int>(sceneData->islandSize * 2));
+		voronoiIslands = make_unique<Voronoi::VoronoiIslands>(sceneData->gridSize, sceneData->islandCount);
 		voronoiIslands->GenerateIslands();
-		terrainShader->setIslands(voronoiIslands->GetIslands(), islandSize);
+		terrainShader->setIslands(voronoiIslands->GetIslands(), sceneData->islandSize);
 		terrainShader->setBridges(voronoiIslands->GetBridges(), voronoiIslands->GetIslands());
 	}
 
@@ -849,24 +813,6 @@ void App1::gui()
 	{
 		camera->setPosition(25.0f, 90.2f, 24.0f);
 		camera->setRotation(66.0f, 41.0f, 0.f);
-	}
-
-	ImGui::Separator();
-
-	ImGui::Text("Firefly Position");
-
-	if (ImGui::Button("Point Light"))
-	{
-		sceneData->fireflyData.objPos[0] = 68.955f;
-		sceneData->fireflyData.objPos[1] = 11.866f;
-		sceneData->fireflyData.objPos[2] = 84.265f;
-	}
-
-	if (ImGui::Button("Shadow Position"))
-	{
-		sceneData->fireflyData.objPos[0] = 58.881f;
-		sceneData->fireflyData.objPos[1] = 8.507f;
-		sceneData->fireflyData.objPos[2] = 68.2f;
 	}
 
 	ImGui::Separator();
@@ -984,9 +930,9 @@ void App1::initComponents() {
 	textureMgr->loadTexture(L"colour_2", L"res/snow2/snow.jpg"); // wirestock. Freepik. Available at: https://www.freepik.com/free-photo/closeup-texture-fresh-white-snow-surface_23836198.htm#fromView=search&page=1&position=1&uuid=89966487-bab0-4307-a96b-a316a9055e31 (Accessed: November 27, 2024).
 
 	// Voronoi Islands
-	voronoiIslands = make_unique<Voronoi::VoronoiIslands>(gridSize, islandCount);
+	voronoiIslands = make_unique<Voronoi::VoronoiIslands>(sceneData->gridSize, sceneData->islandCount);
 	voronoiIslands->GenerateIslands();
-	terrainShader->setIslands(voronoiIslands->GetIslands(), islandSize);
+	terrainShader->setIslands(voronoiIslands->GetIslands(), sceneData->islandSize);
 	terrainShader->setBridges(voronoiIslands->GetBridges(), voronoiIslands->GetIslands());
 
 	// Water
@@ -1027,8 +973,10 @@ void App1::initComponents() {
 	teapot = new AModel(renderer->getDevice(), "res/teapot.obj"); // Falconer, Ruth (2024) ‘DX Framework for CMP301’ [My Learning Space]. Abertay University. 03 May.
 	textureMgr->loadTexture(L"teapot", L"res/snow2/snow.jpg"); // wirestock. Freepik. Available at: https://www.freepik.com/free-photo/closeup-texture-fresh-white-snow-surface_23836198.htm#fromView=search&page=1&position=1&uuid=89966487-bab0-4307-a96b-a316a9055e31 (Accessed: November 27, 2024).
 
-	// Player
+	// Player, Ghost
+	ghostActor = new Ghost();
 	player = new Player();
+	player->initialize(sceneData);
 	player->setPosition(58.881f, 8.507f, 68.2f);
 
 }

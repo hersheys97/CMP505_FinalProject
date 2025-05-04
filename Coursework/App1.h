@@ -19,6 +19,7 @@
 #include "Player.h"
 #include "VoronoiIslands.h"
 #include "FMODAudioSystem.h"
+#include "Ghost.h"
 
 enum class AppMode { FlyCam, Play };
 
@@ -40,138 +41,95 @@ protected:
 private:
 	// Initialization method
 	void initComponents();
-
 	float randomFloat(float min, float max);
 
-	// Rendering methods
+	// Rendering pipeline methods
 	void renderToTexture();
 	void finalRenderToScreen();
-
-	void renderAudio();
 	void getShadowDepthMap(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, const XMMATRIX& identityMatrix);
 	void finalRender(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, const XMMATRIX& identityMatrix);
+
+	// Entity rendering methods
 	void renderPlayer();
 	void renderGhost(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
-
-	void applyBloom(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
-	void applyChromaticAberration(const XMMATRIX& worldMatrix, const XMMATRIX& orthoViewMatrix, const XMMATRIX& orthoMatrix);
-
 	void renderDome(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
 	void renderTerrain(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
 	void renderWater(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
 	void renderMoon(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
-	void renderFirefly(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
 
+	// Ghost behavior methods
+	void handleGhostRespawn();
+	void updateSonarResponse(float deltaTime);
+	void handleNormalWandering(float deltaTime);
+	bool handleBoundaryBounce(float minX, float maxX, float minZ, float maxZ);
+	void updateWanderingDirection();
+	void updateGhostPosition(float deltaTime);
+	void renderGhostModel(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, float deltaTime);
+
+	// Post-processing methods
+	void applyBloom(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
+	void applyChromaticAberration(const XMMATRIX& worldMatrix, const XMMATRIX& orthoViewMatrix, const XMMATRIX& orthoMatrix);
+	void updateChromaticAberration();
+
+	// Audio methods
+	void renderAudio();
+	void updateGhostAudio(float deltaTime);
+
+	// World generation methods
 	void generateIslands(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
 	void generateBridges(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
 	void generatePickups(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
 
-	// Cleanup method
+	// Cleanup
 	void cleanup();
 
+	// Hardware/Window handles
 	HWND hwnd;
 
-	// Shadows
+	// Rendering components
 	ShadowMap* shadowMap[2];
+	RenderTexture* renderBloom;
+	RenderTexture* renderAberration;
+	QuadMesh* screenEffects;
+
+	// Shaders
 	DepthShader* depthShader;
 	WaterDepthShader* waterDepthShader;
 	TerrainDepthShader* terrainDepthShader;
-
-	// Render Texture - Bloom
-	RenderTexture* renderBloom;
 	Bloom* bloomShader;
-
-	// Render Texture - Chromatic Aberration
-	bool useChromaticAberration = false;
-	float chromaticAberrationIntensity = 0.0f;
-	float maxChromaticAberration = 0.01f; // Adjust for stronger/weaker effect
-	XMFLOAT2 offsets = { 0.0f, 0.0f };
-	XMFLOAT2 ghostScreenPos = { 0.0f, 0.0f };
-	float ghostDistance = 0.0f;
-	float timeCalc = 0.0f;
-	float effectIntensity = 0.0f;
-
 	ChromaticAberration* chromaticAberration;
-	RenderTexture* renderAberration;
 	SimpleTexture* simpleTexture;
-	QuadMesh* screenEffects;
-
-	// Dome
-	SphereMesh* circleDome;
 	DomeShader* domeShader;
-
-	// Water
-	PlaneMesh* water;
 	WaterShader* waterShader;
-
-	// Terrain
-	CubeMesh* topTerrain;
 	TerrainManipulation* terrainShader;
-
-	// Moon
-	SphereMesh* moon;
 	MoonShader* moonShader;
-
-	// Model - Ghost
-	AModel* ghost;
 	GhostShader* ghostShader;
 
-	// Lights
+	// Geometry
+	SphereMesh* circleDome;
+	PlaneMesh* water;
+	CubeMesh* topTerrain;
+	SphereMesh* moon;
+	AModel* ghost;
+	AModel* teapot;
+
+	// Lighting
 	Light* spotLight;
 	Light* directionalLight;
 	Light* pointLight1;
 	Light* pointLight2;
 
-	// Model - Pickups
-	AModel* teapot;
-
-	// Player
+	// Game entities
 	Player* player;
-	XMFLOAT3 m_lastCamPos = { 0.f,0.f,0.f };
-	XMVECTOR m_camVelocity = XMVectorZero();
-	float m_camEyeHeight = 1.8f;
-	bool firstTimeInPlayMode = true;
+	Ghost* ghostActor;
 
-	// Voronoi Islands
-	unique_ptr<Voronoi::VoronoiIslands> voronoiIslands;
-	float islandSize = 50.0f; // ISLAND_SIZE
-	int islandCount = 2;
-	float minIslandDistance = 30.0f;
-	int gridSize = 700;
-
-	// FMOD
+	// Systems
 	FMODAudioSystem audioSystem;
-	bool startedBGM = false;
-	bool firstTimeGeneratingIslands = true;
+	SceneData* sceneData;
 
-	// Echo Pulse
-	bool sonarActive = false;
-	float sonarTime = 0.0f;
-	float sonarDuration = 3.0f;
-	XMFLOAT3 sonarOrigin = { 0,0,0 };
-	float sonarMaxRadius = 80.0f;
+	// Voronoi
+	unique_ptr<Voronoi::VoronoiIslands> voronoiIslands;
 
-	// Ghost
-	XMFLOAT3 ghostPosition = { 0.f, 0.f, 0.f };
-	XMFLOAT3 ghostVelocity = { 0.f, 0.f, 0.f };
-	float ghostLifetime = 0.f;
-	const float ghostMaxLifetime = 15.f;
-	bool ghostActive = false;
-	int currentIslandIndex = -1;
-	float directionChangeTimer = 0.0f;
-	float nextDirectionChangeTime = 7.0;
-
-	float effectFadeTimer = 0.0f;
-	float effectFadeDuration = 1.0f; // 1 second fade in/out
-	bool effectFadingIn = false;
-	bool effectFadingOut = false;
-
-	XMFLOAT3 sonarTargetPosition = { 0.f, 0.f, 0.f };
-	float sonarResponseTimer = 0.f;
-	const float sonarResponseDuration = 5.0f; // 5 secs
-	bool respondingToSonar = false;
-
-	// Screen dimensions
 	float SCREEN_WIDTH = 0.f;
 	float SCREEN_HEIGHT = 0.f;
 
@@ -179,8 +137,6 @@ private:
 	int shadowmapHeight = 1024;
 	int sceneWidth = 100;
 	int sceneHeight = 100;
-
-	SceneData* sceneData;
 };
 
 #endif

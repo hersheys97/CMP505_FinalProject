@@ -73,7 +73,7 @@ void ChromaticAberration::initShader(const wchar_t* vsFilename, const wchar_t* p
 	renderer->CreateSamplerState(&samplerDesc, &sampleState);
 }
 
-void ChromaticAberration::setShaderParameters(ID3D11DeviceContext* deviceContext, const XMMATRIX& worldMatrix, const XMMATRIX& orthoView, const XMMATRIX& orthoMatrix, ID3D11ShaderResourceView* texture, XMFLOAT2 offsets, XMFLOAT2 ghostScreenPos, float ghostDistance, float timeVal, float effectIntensity)
+void ChromaticAberration::setShaderParameters(ID3D11DeviceContext* deviceContext, const XMMATRIX& worldMatrix, const XMMATRIX& orthoView, const XMMATRIX& orthoMatrix, ID3D11ShaderResourceView* texture, SceneData* sceneData)
 {
 	HRESULT result;
 	D3D11_MAPPED_SUBRESOURCE mappedResource;
@@ -96,11 +96,11 @@ void ChromaticAberration::setShaderParameters(ID3D11DeviceContext* deviceContext
 	AberrationBufferType* aberPtr;
 	deviceContext->Map(aberrationBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
 	aberPtr = (AberrationBufferType*)mappedResource.pData;
-	aberPtr->chromaticOffset = offsets;
-	aberPtr->ghostScreenPos = ghostScreenPos;
-	aberPtr->ghostDistance = ghostDistance;
-	aberPtr->timeVal = timeVal;
-	aberPtr->effectIntensity = effectIntensity;
+	aberPtr->chromaticOffset = sceneData->chromaticAberrationData.offsets;
+	aberPtr->ghostScreenPos = sceneData->chromaticAberrationData.ghostScreenPos;
+	aberPtr->ghostDistance = sceneData->chromaticAberrationData.ghostDistance;
+	aberPtr->timeVal = sceneData->chromaticAberrationData.timeCalc;
+	aberPtr->effectIntensity = sceneData->chromaticAberrationData.effectIntensity;
 	aberPtr->padding = 0.f;
 	deviceContext->Unmap(aberrationBuffer, 0);
 	deviceContext->PSSetConstantBuffers(1, 1, &aberrationBuffer);

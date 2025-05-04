@@ -7,6 +7,12 @@ This header file is used to store all the data into a single struct for ease of 
 */
 
 #pragma once
+#include <DirectXMath.h>
+
+// Forward declarations
+class Light;
+class VoronoiIslands;
+class Player;
 
 // Light Data Structure
 struct LightData {
@@ -57,10 +63,58 @@ public:
 	float blurIntensity = 2.f;
 };
 
-// Firefly Data Structure
-struct Firefly {
-public:
-	float objPos[3] = { 58.881f, 8.507f, 68.2f };
+// Chromatic Aberration structure
+struct ChromaticAberrationData {
+	bool enabled = false;
+	float intensity = 0.0f;
+	float maxIntensity = 0.01f;
+	float effectIntensity = 0.0f;
+	float timeCalc = 0.0f;
+	float ghostDistance = 0.0f;
+	float effectFadeTimer = 0.0f;
+	float effectFadeDuration = 1.0f;
+	bool effectFadingIn = false;
+	bool effectFadingOut = false;
+	XMFLOAT2 offsets = { 0.0f, 0.0f };
+	XMFLOAT2 ghostScreenPos = { 0.0f, 0.0f };
+};
+
+// Ghost State structure
+struct GhostData {
+	XMFLOAT3 position = { 0.f, 0.f, 0.f };
+	XMFLOAT3 velocity = { 0.f, 0.f, 0.f };
+	bool isActive = false;
+	int currentIslandIndex = -1;
+	float directionChangeTimer = 0.0f;
+	float nextDirectionChangeTime = 7.0f;
+	float aliveTime = 30.f;
+
+	// Sonar response
+	XMFLOAT3 sonarTargetPosition = { 0.f, 0.f, 0.f };
+	float sonarResponseTimer = 0.f;
+	bool respondingToSonar = false;
+	float maxLifetime = 30.f;
+};
+
+struct SonarData {
+	bool isActive = false;
+	float sonarTime = 0.f;
+	float sonarDuration = 5.f;
+	XMFLOAT3 sonarOrigin = { 0.f, 0.f, 0.f };
+};
+
+// Player State structure
+struct PlayerData {
+	XMFLOAT3 lastCameraPosition = { 0.f, 0.f, 0.f };
+	XMFLOAT3 cameraVelocity = { 0.f, 0.f, 0.f };
+	float cameraEyeHeight = 1.8f;
+	bool firstTimeInPlayMode = true;
+};
+
+// Audio State structure
+struct AudioState {
+	bool bgmStarted = false;
+	float sonarMaxRadius = 80.0f;
 };
 
 // Scene Data Structure
@@ -71,7 +125,23 @@ public:
 	ShadowLightsData shadowLightsData;
 	MoonData moonData;
 	BloomData bloomData;
-	Firefly fireflyData;
+	ChromaticAberrationData chromaticAberrationData;
+	GhostData ghostData;
+	SonarData sonarData;
+	PlayerData playerData;
+	AudioState audioState;
+
+	// Islands, Bridges
+	VoronoiIslands* voronoiIslands = nullptr;
+
+	bool isGamePaused = true;
+
+	float islandSize = 50.0f;
+	int islandCount = 2;
+	float minIslandDistance = 30.0f;
+	int gridSize = 700;
+	bool firstTimeGeneratingIslands = true;
+
 	bool tessMesh = false;
 
 	// Toggle spotlight shadow
@@ -126,8 +196,11 @@ public:
 		bloomData.blurAmount = 2.f;
 		bloomData.blurIntensity = 2.f;
 
-		// Reset firefly data
-		fireflyData.objPos[0] = 58.881f; fireflyData.objPos[1] = 8.507f; fireflyData.objPos[2] = 68.2f;
+		// Reset class data
+		ghostData = GhostData{};
+		bloomData = BloomData{};
+		chromaticAberrationData = ChromaticAberrationData{};
+		audioState = AudioState{};
 	}
 
 	// Set the point light which will follow the player
@@ -137,10 +210,14 @@ public:
 		lightData.pointLight_pos1[2] = z;
 	}
 
-	void setFireflyPosition(float x, float y, float z) {
-		fireflyData.objPos[0] = x;
-		fireflyData.objPos[1] = y;
-		fireflyData.objPos[2] = z;
+	// Set the ghost position
+	void setGhostPosition(float x, float y, float z) {
+		ghostData.position = XMFLOAT3(x, y, z);
+	}
+
+	// Chromatic Aberration effect
+	void updateChromaticIntensity(float intensity) {
+		chromaticAberrationData.intensity = intensity;
 	}
 };
 
