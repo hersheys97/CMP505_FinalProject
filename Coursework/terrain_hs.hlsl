@@ -50,15 +50,17 @@ ConstantOutputType PatchConstantFunction(InputPatch<InputType, 3> inputPatch, ui
     float distanceToCenter = length(cameraPosition - center);
 
     // Define the distance interval for tessellation
-    const float maxD = 1.f; // Near distance for maximum tessellation
-    const float minD = 20.0f; // Far distance for minimum tessellation
-
+    const float maxD = 5.f; // Near distance for maximum tessellation
+    const float minD = 50.0f; // Far distance for minimum tessellation
+    const float maxTess = 64.f;
+    const float minTess = 1.f;
+    
     // Interpolate the tessellation factor based on distance using saturate function
-    float tessFactor = 32.0f * saturate((minD - distanceToCenter) / (minD - maxD));
+    float tessFactor = maxTess * saturate((minD - distanceToCenter) / (minD - maxD));
 
     // Ensure tessellation factor is within [1, 32] (kept small value since my terrain is of low quality)
-    tessFactor = max(1.0f, tessFactor);
-    tessFactor = min(tessFactor, 32.0f);
+    tessFactor = max(minTess, tessFactor);
+    tessFactor = min(tessFactor, maxTess);
     
     /****************************************************************************************************************************/
     

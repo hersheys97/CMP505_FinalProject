@@ -76,9 +76,9 @@ private:
 	void updateGhostAudio(float deltaTime);
 
 	// World generation methods
-	void generateIslands(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
-	void generateBridges(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
-	void generatePickups(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
+	void generateIslands(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, bool depth);
+	void generateBridges(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, bool depth);
+	void generatePickups(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, bool depth);
 
 	// Cleanup
 	void cleanup();
@@ -126,6 +126,8 @@ private:
 	// Systems
 	FMODAudioSystem audioSystem;
 	SceneData* sceneData;
+
+	PlaneMesh* testTess;
 
 	// Voronoi
 	unique_ptr<Voronoi::VoronoiIslands> voronoiIslands;

@@ -17,14 +17,15 @@ class Player;
 // Light Data Structure
 struct LightData {
 public:
-	float ambientColour[4] = { 0.05f, 0.05f, 0.07f, 1.0f };
-	float diffuseColour[4] = { 0.1f, 0.1f, 0.1f, 1.0f };
-	float specularColour[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-	float spec_pow = 64.f;
+	float ambientColour[4] = { 0.03f, 0.03f, 0.05f, 1.0f }; // Darker blue
+	float diffuseColour[4] = { 0.08f, 0.08f, 0.1f, 1.0f };
+	float specularColour[4] = { 0.8f, 0.9f, 1.0f, 1.0f }; // Pale blue
+	float spec_pow = 32.f; // Softer highlights
+
 	float pointLight_pos1[3] = { 56.8f, 16.25f, 78.75f };
-	float pointLight1Colour[4] = { 0.6f, 0.6f, 0.6f, 1.f };
+	float pointLight1Colour[4] = { 0.4f, 0.2f, 0.2f, 1.f }; // Muted red
 	float pointLight_pos2[3] = { 53.75f, 3.75f, 66.25f };
-	float pointLight2Colour[4] = { 1.f, 0.675f, 0.078f, 1.0f };
+	float pointLight2Colour[4] = { 0.3f, 0.25f, 0.1f, 1.0f }; // Desaturated orange
 	float pointLightRadius[2] = { 6.91f, 0.28f };
 };
 
@@ -42,8 +43,8 @@ struct ShadowLightsData {
 public:
 	float lightDirections[2][3] = { {0.056f, -0.722f, -1.0f}, {-0.045f, -1.f, -0.059f} };
 	float dir_pos[3] = { 58.0f, 88.0f, 51.0f };
-	float dirColour[4] = { 0.129f, 0.42f, 0.529f, 1.0f };
-	float spotColour[4] = { 0.129f, 0.22f, 0.329f, 1.0f };
+	float dirColour[4] = { 0.08f, 0.25f, 0.35f, 1.0f }; // Deep teal
+	float spotColour[4] = { 0.1f, 0.15f, 0.25f, 1.0f }; // Cold blue
 	float spotCutoff = 0.988f;
 	float spotFalloff = 5.0f;
 	bool enableSpotShadow = true; // Toggle for spotlight shadows

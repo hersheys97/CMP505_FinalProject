@@ -221,32 +221,34 @@ bool isInShadow(Texture2D shadowMap, float2 uv, float4 lightViewPosition, float 
 // Main Shader Function
 float4 main(InputType input) : SV_TARGET
 {
-    float3 terrainNormal = float3(1.f, 1.f, 1.f); // Placeholder for terrain normal)
+    // Sample terrain texture and get normal
     float4 terrainColour = terrainTexture.Sample(terrainSampler, input.tex);
+    float3 normalizedNormal = normalize(input.normal);
+    float3 worldNormal = normalize(input.worldNormal);
+    
     /****************************************************************************************************************************/
     
     // Calculate directional light
-    float4 directionalLight = CalculateDirectionalLight(normalize(input.normal));
+    float4 directionalLight = CalculateDirectionalLight(worldNormal);
     
     /****************************************************************************************************************************/
     
     // Calculate point lights
-    float4 pointLight1 = CalculatePointLight(pointLight1Pos, pointLight1Radius, input.worldPosition, terrainNormal, pointLight1Colour);
-    float4 pointLight2 = CalculatePointLight(pointLight2Pos, pointLight2Radius, input.worldPosition, terrainNormal, pointLight2Colour);
+    float4 pointLight1 = CalculatePointLight(pointLight1Pos, pointLight1Radius, input.worldPosition, worldNormal, pointLight1Colour);
+    float4 pointLight2 = CalculatePointLight(pointLight2Pos, pointLight2Radius, input.worldPosition, worldNormal, pointLight2Colour);
     
     // Point lights intensity
-    float intensityFactor = 1.0f;
+    float intensityFactor = 0.7f;
     pointLight1 *= intensityFactor;
     pointLight2 *= intensityFactor;
     
     /****************************************************************************************************************************/
     
     // Calculate spotlight (moonlight)
-    float4 spotlight = CalculateSpotlight(moonPos, spotlightDirection, spotlightCutoff, spotlightFalloff, input.worldPosition, normalize(input.worldNormal), spotlightColour);
-    float3 normalizedSpotlightDirection = normalize(spotlightDirection);
+    float4 spotlight = CalculateSpotlight(moonPos, spotlightDirection, spotlightCutoff, spotlightFalloff, input.worldPosition, worldNormal, spotlightColour);
 
     // Calculate specular light from the spotlight
-    float4 specular = CalculateSpecularLight(normalizedSpotlightDirection, normalize(input.worldNormal), input.viewVector, specularColour, specularPower);
+    float4 specular = CalculateSpecularLight(normalize(spotlightDirection), worldNormal, normalize(input.viewVector), specularColour, specularPower);
     
     /****************************************************************************************************************************/
     
@@ -261,11 +263,11 @@ float4 main(InputType input) : SV_TARGET
     
     /****************************************************************************************************************************/
     
-    // Combine all lighting
-    float4 finalColour = (ambientColour * terrainColour) + pointLight1 + pointLight2 + (directionalLight * shadowFactor2) + (spotlight * shadowFactor);
+    float4 ambient = ambientColour * terrainColour * 0.8f; // Reduced intensity
+    float4 finalColour = ambient + (pointLight1 + pointLight2) * 0.9f + (directionalLight * shadowFactor2 * 0.7f) + (spotlight * shadowFactor * 0.8f);
     
-    finalColour += specular;
-    finalColour = saturate(finalColour * terrainColour);
+    finalColour += specular * 0.6f;
+    finalColour = saturate(finalColour);
     
     /****************************************************************************************************************************/
     // Sonar wireframe overlay
@@ -282,8 +284,8 @@ float4 main(InputType input) : SV_TARGET
 
     // 1. Stronger Reveal Area Around Player
         float revealRadius = 60.0f;
-        float revealFactor = smoothstep(revealRadius, revealRadius - 5.0f, dist); // Wider falloff
-        finalColour.rgb += float3(0.2f, 0.6f, 1.0f) * revealFactor * 1.5f; // Brighter blue
+        float revealFactor = smoothstep(revealRadius, revealRadius - 5.0f, dist);
+        finalColour.rgb += float3(0.1f, 0.3f, 0.4f) * revealFactor * 1.5f;
 
     // 2. More Visible Expanding Ring
         float ringPosition = waveProgress * sonarRadius;
@@ -318,12 +320,13 @@ float4 main(InputType input) : SV_TARGET
         float globalPulse = saturate(1.0 - sonarTime * 2.0);
         finalColour.rgb += float3(0.1f, 0.3f, 0.5f) * globalPulse * 0.3f;
     }
+    //else return float4(1.0f, 1.0f, 1.0f, 1.0f); // Return white if sonar is not active)
     
     //Apply gamma correction
     //finalColour = pow(finalColour, 1.0f / 2.2f);
     
     finalColour.w = 1.f; // Setting alpha
     
-   // return finalColour; // pow(finalColour, 2.2f)
+    // return finalColour; // pow(finalColour, 2.2f)
     return finalColour;
 }
