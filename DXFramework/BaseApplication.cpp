@@ -37,7 +37,7 @@ BaseApplication::~BaseApplication()
 }
 
 // Default application initialisation. Create renderer, camera, timer and imGUI objects.
-void BaseApplication::init(HINSTANCE hinstance, HWND hwnd, int screenWidth, int screenHeight, Input *in, bool VSYNC, bool FULL_SCREEN)
+void BaseApplication::init(HINSTANCE hinstance, HWND hwnd, int screenWidth, int screenHeight, Input* in, bool VSYNC, bool FULL_SCREEN)
 {
 	input = in;
 	wnd = hwnd;
@@ -79,7 +79,7 @@ bool BaseApplication::frame()
 {
 	if (input->isKeyDown(VK_ESCAPE) == true)
 	{
-		return false;
+		//return false;
 	}
 
 	timer->frame();

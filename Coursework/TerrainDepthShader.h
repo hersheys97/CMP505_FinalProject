@@ -41,4 +41,6 @@ private:
 	ID3D11SamplerState* textureSamplerState;
 	ID3D11SamplerState* shadowSample1;
 	ID3D11SamplerState* shadowSample2;
+
+	ID3D11RasterizerState* rasterState;
 };

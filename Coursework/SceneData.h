@@ -17,16 +17,16 @@ class Player;
 // Light Data Structure
 struct LightData {
 public:
-	float ambientColour[4] = { 0.03f, 0.03f, 0.05f, 1.0f }; // Darker blue
-	float diffuseColour[4] = { 0.08f, 0.08f, 0.1f, 1.0f };
-	float specularColour[4] = { 0.8f, 0.9f, 1.0f, 1.0f }; // Pale blue
-	float spec_pow = 32.f; // Softer highlights
+	float ambientColour[4] = { 1.f, 1.f, 1.f, 1.0f };
+	float diffuseColour[4] = { 1.f, 1.f, 1.f, 1.0f };
+	float specularColour[4] = { 0.8f, 0.9f, 1.0f, 1.0f };
+	float spec_pow = 32.f;
 
 	float pointLight_pos1[3] = { 56.8f, 16.25f, 78.75f };
-	float pointLight1Colour[4] = { 0.4f, 0.2f, 0.2f, 1.f }; // Muted red
+	float pointLight1Colour[4] = { 1.f, 1.f, 1.f, 1.0f };
 	float pointLight_pos2[3] = { 53.75f, 3.75f, 66.25f };
-	float pointLight2Colour[4] = { 0.3f, 0.25f, 0.1f, 1.0f }; // Desaturated orange
-	float pointLightRadius[2] = { 6.91f, 0.28f };
+	float pointLight2Colour[4] = { 1.f, 1.f, 1.f, 1.0f };
+	float pointLightRadius[2] = { 5.f, 5.f };
 };
 
 // Water Data Structure
@@ -43,8 +43,8 @@ struct ShadowLightsData {
 public:
 	float lightDirections[2][3] = { {0.056f, -0.722f, -1.0f}, {-0.045f, -1.f, -0.059f} };
 	float dir_pos[3] = { 58.0f, 88.0f, 51.0f };
-	float dirColour[4] = { 0.08f, 0.25f, 0.35f, 1.0f }; // Deep teal
-	float spotColour[4] = { 0.1f, 0.15f, 0.25f, 1.0f }; // Cold blue
+	float dirColour[4] = { 0.f, 0.023f, 0.035f, 1.0f };
+	float spotColour[4] = { 0.1f, 0.15f, 0.25f, 1.0f };
 	float spotCutoff = 0.988f;
 	float spotFalloff = 5.0f;
 	bool enableSpotShadow = true; // Toggle for spotlight shadows
@@ -160,15 +160,15 @@ public:
 	// Reset the entire view to its initial state
 	void resetView() {
 		// Reset light data
-		lightData.ambientColour[0] = 0.2f; lightData.ambientColour[1] = 0.2f; lightData.ambientColour[2] = 0.3f; lightData.ambientColour[3] = 1.0f;
-		lightData.diffuseColour[0] = 1.f; lightData.diffuseColour[1] = 1.f; lightData.diffuseColour[2] = 1.0f; lightData.diffuseColour[3] = 1.0f;
-		lightData.specularColour[0] = 1.0f; lightData.specularColour[1] = 1.0f; lightData.specularColour[2] = 1.0f; lightData.specularColour[3] = 1.0f;
-		lightData.spec_pow = 64.f;
+		lightData.ambientColour[0] = 1.f; lightData.ambientColour[1] = 1.f; lightData.ambientColour[2] = 1.f; lightData.ambientColour[3] = 1.0f;
+		lightData.diffuseColour[0] = 0.08f; lightData.diffuseColour[1] = 0.08f; lightData.diffuseColour[2] = 0.1f; lightData.diffuseColour[3] = 1.0f;
+		lightData.specularColour[0] = 0.8f; lightData.specularColour[1] = 0.9f; lightData.specularColour[2] = 1.0f; lightData.specularColour[3] = 1.0f;
+		lightData.spec_pow = 32.f;
 		lightData.pointLight_pos1[0] = 56.8f; lightData.pointLight_pos1[1] = 16.25f; lightData.pointLight_pos1[2] = 78.75f;
-		lightData.pointLight1Colour[0] = 1.f; lightData.pointLight1Colour[1] = 0.f; lightData.pointLight1Colour[2] = 0.f; lightData.pointLight1Colour[3] = 1.0f;
+		lightData.pointLight1Colour[0] = 1.f; lightData.pointLight1Colour[1] = 1.f; lightData.pointLight1Colour[2] = 1.f; lightData.pointLight1Colour[3] = 1.0f;
 		lightData.pointLight_pos2[0] = 53.75f; lightData.pointLight_pos2[1] = 3.75f; lightData.pointLight_pos2[2] = 66.25f;
-		lightData.pointLight2Colour[0] = 1.f; lightData.pointLight2Colour[1] = 0.675f; lightData.pointLight2Colour[2] = 0.078f; lightData.pointLight2Colour[3] = 1.0f;
-		lightData.pointLightRadius[0] = 6.91f; lightData.pointLightRadius[1] = 0.28f;
+		lightData.pointLight2Colour[0] = 1.f; lightData.pointLight2Colour[1] = 1.f; lightData.pointLight2Colour[2] = 1.f; lightData.pointLight2Colour[3] = 1.0f;
+		lightData.pointLightRadius[0] = 5.f; lightData.pointLightRadius[1] = 5.f;
 
 		// Reset water data
 		waterData.amplitude = 0.5f;
@@ -180,8 +180,8 @@ public:
 		shadowLightsData.lightDirections[0][0] = 0.056f; shadowLightsData.lightDirections[0][1] = -0.722f; shadowLightsData.lightDirections[0][2] = -1.0f;
 		shadowLightsData.lightDirections[1][0] = -0.045f; shadowLightsData.lightDirections[1][1] = -1.f; shadowLightsData.lightDirections[1][2] = -0.059f;
 		shadowLightsData.dir_pos[0] = 58.0f; shadowLightsData.dir_pos[1] = 88.0f; shadowLightsData.dir_pos[2] = 51.0f;
-		shadowLightsData.dirColour[0] = 0.129f; shadowLightsData.dirColour[1] = 0.42f; shadowLightsData.dirColour[2] = 0.529f; shadowLightsData.dirColour[3] = 1.0f;
-		shadowLightsData.spotColour[0] = 0.129f; shadowLightsData.spotColour[1] = 0.22f; shadowLightsData.spotColour[2] = 0.329f; shadowLightsData.spotColour[3] = 1.0f;
+		shadowLightsData.dirColour[0] = 0.f; shadowLightsData.dirColour[1] = 0.023f; shadowLightsData.dirColour[2] = 0.035f; shadowLightsData.dirColour[3] = 1.0f;
+		shadowLightsData.spotColour[0] = 0.1f; shadowLightsData.spotColour[1] = 0.15f; shadowLightsData.spotColour[2] = 0.25f; shadowLightsData.spotColour[3] = 1.0f;
 		shadowLightsData.spotCutoff = 0.988f;
 		shadowLightsData.spotFalloff = 5.0f;
 		shadowLightsData.enableSpotShadow = true;

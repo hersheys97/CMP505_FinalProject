@@ -78,7 +78,7 @@ void App1::renderToTexture() {
 	XMFLOAT3 playerPos = player->getPosition();
 
 	// Update point light to player's position
-	sceneData->setPointLight1Position(playerPos.x, playerPos.y + 2.f, playerPos.z);
+	sceneData->setPointLight1Position(playerPos.x, playerPos.y + 10.f, playerPos.z);
 
 	spotLight->setDiffuseColour(sceneData->lightData.diffuseColour[0], sceneData->lightData.diffuseColour[1], sceneData->lightData.diffuseColour[2], sceneData->lightData.diffuseColour[3]);
 	spotLight->setDirection(sceneData->shadowLightsData.lightDirections[0][0], sceneData->shadowLightsData.lightDirections[0][1], sceneData->shadowLightsData.lightDirections[0][2]);
@@ -153,6 +153,15 @@ void App1::renderPlayer() {
 	if (currentMode == AppMode::Play) {
 
 		ShowCursor(FALSE);
+
+		if (input->isKeyDown(VK_ESCAPE)) {
+			camera->setPosition(40.8f, 13.f, -11.8f);
+			camera->setRotation(2.3f, 9.9f, 0.f);
+			currentMode = AppMode::FlyCam;
+			input->SetKeyUp(VK_ESCAPE); // Mark as handled
+			ShowCursor(TRUE);
+			return;
+		}
 
 		player->updatePlayer(dt, input, terrainShader, camera, &audioSystem, voronoiIslands.get());
 		player->handleMouseLook(input, dt, hwnd, sceneWidth, sceneHeight);
@@ -374,10 +383,9 @@ void App1::renderGhostModel(const XMMATRIX& worldMatrix, const XMMATRIX& viewMat
 	sceneData->chromaticAberrationData.offsets.x = cos(offsetAngle) * offsetMagnitude;
 	sceneData->chromaticAberrationData.offsets.y = sin(offsetAngle) * offsetMagnitude;
 
-	XMMATRIX ghostWorldMatrix = XMMatrixTranslation(sceneData->ghostData.position.x, sceneData->ghostData.position.y, sceneData->ghostData.position.z);
+	XMMATRIX ghostWorldMatrix = XMMatrixTranslation(sceneData->ghostData.position.x, sceneData->ghostData.position.y, sceneData->ghostData.position.z) * worldMatrix;
 	ghost->sendData(renderer->getDeviceContext());
-	ghostShader->setShaderParameters(renderer->getDeviceContext(), ghostWorldMatrix, viewMatrix, projectionMatrix,
-		textureMgr->getTexture(L"ghost"), camera, spotLight, directionalLight, sceneData);
+	ghostShader->setShaderParameters(renderer->getDeviceContext(), ghostWorldMatrix, viewMatrix, projectionMatrix, textureMgr->getTexture(L"ghost"), camera, spotLight, directionalLight, sceneData);
 	ghostShader->render(renderer->getDeviceContext(), ghost->getIndexCount());
 }
 
@@ -403,25 +411,32 @@ void App1::getShadowDepthMap(const XMMATRIX& worldMatrix, const XMMATRIX& viewMa
 		// 1. Set Shadow Map as Render Target
 		shadowMap[i]->BindDsvAndSetNullRenderTarget(renderer->getDeviceContext());
 
-		// Set the light direction and position
+		// Set up light matrices
 		XMFLOAT3 lightPos = currentLight->getPosition();
-		currentLight->setLookAt(lightPos.x, lightPos.y, lightPos.z);
+		XMFLOAT3 lightDir = currentLight->getDirection();
+
+		// Calculate target position properly
+		XMFLOAT3 targetPos = {
+			lightPos.x + lightDir.x * 10.0f, // Multiply by some distance
+			lightPos.y + lightDir.y * 10.0f,
+			lightPos.z + lightDir.z * 10.0f
+		};
+
+		currentLight->setLookAt(targetPos.x, targetPos.y, targetPos.z);
+		currentLight->generateViewMatrix();
 
 		// 2. Get matrix based on light's position and direction
 		currentLight->generateViewMatrix();
+
 		XMMATRIX lightViewMatrix = currentLight->getViewMatrix();
 		XMMATRIX lightProjectionMatrix = currentLight->getOrthoMatrix();
 
 		// 3. Apply Depth Shader to the meshes
 
 		// Islands, bridges, pickups
-		generateIslands(worldMatrix, viewMatrix, projectionMatrix, true);
-		generateBridges(worldMatrix, viewMatrix, projectionMatrix, true);
-		generatePickups(worldMatrix, viewMatrix, projectionMatrix, true);
-
-		topTerrain->sendData(renderer->getDeviceContext(), D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
-		terrainDepthShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, viewMatrix, projectionMatrix, textureMgr->getTexture(L"island_floor"), textureMgr->getTexture(L""), camera);
-		terrainDepthShader->render(renderer->getDeviceContext(), topTerrain->getIndexCount());
+		generateIslands(worldMatrix, viewMatrix, projectionMatrix, true, lightViewMatrix, lightProjectionMatrix);
+		generateBridges(worldMatrix, viewMatrix, projectionMatrix, true, lightViewMatrix, lightProjectionMatrix);
+		generatePickups(worldMatrix, viewMatrix, projectionMatrix, true, lightViewMatrix, lightProjectionMatrix);
 
 		// Ghost
 		XMMATRIX ghostWorldMatrix = XMMatrixTranslation(sceneData->ghostData.position.x, sceneData->ghostData.position.y, sceneData->ghostData.position.z);
@@ -430,10 +445,10 @@ void App1::getShadowDepthMap(const XMMATRIX& worldMatrix, const XMMATRIX& viewMa
 		depthShader->render(renderer->getDeviceContext(), ghost->getIndexCount());
 
 		// Water - own vertex shader needed to calculate displacements to cast shows correclty on it
-		XMMATRIX waterWorldMatrix = XMMatrixTranslation(1.f, 0.0f, 1.0f) * worldMatrix;
-		water->sendData(renderer->getDeviceContext());
-		waterDepthShader->setShaderParameters(renderer->getDeviceContext(), waterWorldMatrix, viewMatrix, projectionMatrix, sceneData);
-		waterDepthShader->render(renderer->getDeviceContext(), water->getIndexCount());
+		//XMMATRIX waterWorldMatrix = XMMatrixTranslation(1.f, 0.0f, 1.0f) * worldMatrix;
+		//water->sendData(renderer->getDeviceContext());
+		//waterDepthShader->setShaderParameters(renderer->getDeviceContext(), waterWorldMatrix, viewMatrix, projectionMatrix, sceneData);
+		//waterDepthShader->render(renderer->getDeviceContext(), water->getIndexCount());
 	}
 
 	// Reset render target and viewport after rendering for this light
@@ -457,7 +472,7 @@ void App1::finalRender(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, 
 
 		renderTerrain(worldMatrix, viewMatrix, projectionMatrix);
 		renderDome(worldMatrix, viewMatrix, projectionMatrix);
-		renderWater(worldMatrix, viewMatrix, projectionMatrix);
+		//renderWater(worldMatrix, viewMatrix, projectionMatrix);
 		renderMoon(worldMatrix, viewMatrix, projectionMatrix);
 	}
 
@@ -501,7 +516,7 @@ void App1::renderDome(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, c
 // Procedural Generation of Voronoi Islands
 // Based on the number of islands, that many Voronoi regions are created in voronoiIslands.GenerateVoronoiRegions(). Then, inside each Voronoi region, an island is spawn with a random position and rotation. After that, each island connects to one other island with a bridge. The islands have collision detection with the Player (Play Mode) or the Camera (Fly Mode).
 
-void App1::generateIslands(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, bool depth) {
+void App1::generateIslands(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, bool depth, const XMMATRIX& lightViewMatrix, const XMMATRIX& lightProjectionMatrix) {
 	constexpr float ISLAND_SCALE = 50.0f;
 	auto& islands = voronoiIslands->GetIslands();
 
@@ -522,13 +537,11 @@ void App1::generateIslands(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatr
 		if (!island.initialized) continue;
 
 		float height = terrainShader->getHeight(island.position.x, island.position.z);
-		XMMATRIX islandWorld = XMMatrixScaling(ISLAND_SCALE, 1.0f, ISLAND_SCALE) *
-			XMMatrixRotationY(island.rotationY) *
-			XMMatrixTranslation(island.position.x, height, island.position.z);
+		XMMATRIX islandWorld = XMMatrixScaling(ISLAND_SCALE, 1.0f, ISLAND_SCALE) * XMMatrixRotationY(island.rotationY) * XMMatrixTranslation(island.position.x, height, island.position.z) * worldMatrix;
 
 		if (depth) {
 			topTerrain->sendData(renderer->getDeviceContext(), D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
-			terrainDepthShader->setShaderParameters(renderer->getDeviceContext(), islandWorld, viewMatrix, projectionMatrix, textureMgr->getTexture(L"island_floor"), textureMgr->getTexture(L""), camera);
+			terrainDepthShader->setShaderParameters(renderer->getDeviceContext(), islandWorld, lightViewMatrix, lightProjectionMatrix, textureMgr->getTexture(L"island_floor"), textureMgr->getTexture(L""), camera);
 			terrainDepthShader->render(renderer->getDeviceContext(), topTerrain->getIndexCount());
 		}
 		else {
@@ -545,7 +558,7 @@ void App1::generateIslands(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatr
 	}
 }
 
-void App1::generatePickups(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, bool depth) {
+void App1::generatePickups(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, bool depth, const XMMATRIX& lightViewMatrix, const XMMATRIX& lightProjectionMatrix) {
 	const float scaleTeapot = 0.2f;
 
 	for (const auto& island : voronoiIslands->GetIslands()) {
@@ -553,11 +566,11 @@ void App1::generatePickups(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatr
 
 		for (const auto& position : island.pickupPositions) {
 			XMVECTOR spawnPos = XMLoadFloat3(&position);
-			XMMATRIX teapotWorld = XMMatrixScaling(scaleTeapot, scaleTeapot, scaleTeapot) * XMMatrixTranslation(XMVectorGetX(spawnPos), XMVectorGetY(spawnPos) + 1.f, XMVectorGetZ(spawnPos));
+			XMMATRIX teapotWorld = XMMatrixScaling(scaleTeapot, scaleTeapot, scaleTeapot) * XMMatrixTranslation(XMVectorGetX(spawnPos), XMVectorGetY(spawnPos) + 1.f, XMVectorGetZ(spawnPos)) * worldMatrix;
 
 			if (depth) {
 				teapot->sendData(renderer->getDeviceContext());
-				depthShader->setShaderParameters(renderer->getDeviceContext(), teapotWorld, viewMatrix, projectionMatrix);
+				depthShader->setShaderParameters(renderer->getDeviceContext(), teapotWorld, lightViewMatrix, lightProjectionMatrix);
 				depthShader->render(renderer->getDeviceContext(), teapot->getIndexCount());
 			}
 			else {
@@ -569,7 +582,7 @@ void App1::generatePickups(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatr
 	}
 }
 
-void App1::generateBridges(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, bool depth)
+void App1::generateBridges(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, bool depth, const XMMATRIX& lightViewMatrix, const XMMATRIX& lightProjectionMatrix)
 {
 	constexpr float BRIDGE_WIDTH = 5.0f;
 	constexpr float BRIDGE_HEIGHT = 0.5f;
@@ -615,14 +628,14 @@ void App1::generateBridges(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatr
 		XMVECTOR bridgeCenter = (bridgeStart + bridgeEnd) * 0.5f;
 		float bridgeLength = XMVectorGetX(XMVector3Length(bridgeEnd - bridgeStart));
 
-		XMMATRIX bridgeWorld = XMMatrixScaling(bridgeLength, BRIDGE_HEIGHT, BRIDGE_WIDTH) * XMMatrixRotationY(-angle) * XMMatrixTranslation(XMVectorGetX(bridgeCenter), avgHeight, XMVectorGetZ(bridgeCenter));
+		XMMATRIX bridgeWorld = XMMatrixScaling(bridgeLength, BRIDGE_HEIGHT, BRIDGE_WIDTH) * XMMatrixRotationY(-angle) * XMMatrixTranslation(XMVectorGetX(bridgeCenter), avgHeight, XMVectorGetZ(bridgeCenter)) * worldMatrix;
 
 		// Render bridge
 		float sonarRadius = sceneData->audioState.sonarMaxRadius * (sceneData->sonarData.sonarTime / sceneData->sonarData.sonarDuration);
 
 		if (depth) {
 			topTerrain->sendData(renderer->getDeviceContext(), D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
-			terrainDepthShader->setShaderParameters(renderer->getDeviceContext(), bridgeWorld, viewMatrix, projectionMatrix, textureMgr->getTexture(L"island_floor"), textureMgr->getTexture(L""), camera);
+			terrainDepthShader->setShaderParameters(renderer->getDeviceContext(), bridgeWorld, lightViewMatrix, lightProjectionMatrix, textureMgr->getTexture(L"island_floor"), textureMgr->getTexture(L""), camera);
 			terrainDepthShader->render(renderer->getDeviceContext(), topTerrain->getIndexCount());
 		}
 		topTerrain->sendData(renderer->getDeviceContext(), D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
@@ -637,26 +650,16 @@ void App1::generateBridges(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatr
 
 void App1::renderTerrain(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix) {
 	if (!wireframeToggle) renderer->setCullOn(false);
-	generateIslands(worldMatrix, viewMatrix, projectionMatrix, false);
-	generateBridges(worldMatrix, viewMatrix, projectionMatrix, false);
-	generatePickups(worldMatrix, viewMatrix, projectionMatrix, false);
 
-	testTess->sendData(renderer->getDeviceContext(), D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
-	terrainShader->setShaderParameters(
-		renderer->getDeviceContext(),
-		worldMatrix, viewMatrix, projectionMatrix, 5.f,
-		textureMgr->getTexture(L"island_floor"),
-		sceneData->shadowLightsData.enableSpotShadow ? shadowMap[0]->getDepthMapSRV() : nullptr,
-		sceneData->shadowLightsData.enableDirShadow ? shadowMap[1]->getDepthMapSRV() : nullptr,
-		camera, spotLight, directionalLight, sceneData
-	);
-	terrainShader->render(renderer->getDeviceContext(), testTess->getIndexCount());
+	generateIslands(worldMatrix, viewMatrix, projectionMatrix, false, viewMatrix, viewMatrix);
+	generateBridges(worldMatrix, viewMatrix, projectionMatrix, false, viewMatrix, viewMatrix);
+	generatePickups(worldMatrix, viewMatrix, projectionMatrix, false, viewMatrix, viewMatrix);
 
 	if (!wireframeToggle)renderer->setCullOn(true);
 }
 
 void App1::renderWater(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix) {
-	XMMATRIX waterWorldMatrix = XMMatrixTranslation(1.f, 0.0f, 1.0f) * worldMatrix;
+	XMMATRIX waterWorldMatrix = XMMatrixScaling(700.f, 1.0f, 700.f) * XMMatrixTranslation(1.f, -50.f, 1.0f) * worldMatrix;
 
 	if (!wireframeToggle) renderer->setCullBack(true);
 
@@ -920,6 +923,7 @@ void App1::initComponents() {
 	directionalLight = new Light();
 	pointLight1 = new Light();
 	pointLight2 = new Light();
+	teapotSpotlights.resize(6);
 
 	spotLight->generateOrthoMatrix((float)sceneWidth, (float)sceneHeight, 0.1f, 2000.f);
 	directionalLight->generateOrthoMatrix((float)sceneWidth, (float)sceneHeight, 0.1f, 2000.f);

@@ -17,4 +17,5 @@ private:
 
 private:
 	ID3D11Buffer* matrixBuffer;
+	ID3D11RasterizerState* rasterState;
 };

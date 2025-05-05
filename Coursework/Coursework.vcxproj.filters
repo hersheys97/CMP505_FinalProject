@@ -52,9 +52,6 @@
     <Filter Include="Resource Files\Mesh\Moon">
       <UniqueIdentifier>{0e705889-fec1-4c55-ab3c-d00253f53f4e}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Resource Files\Mesh\Firefly">
-      <UniqueIdentifier>{ee06929e-50ad-40c2-9c06-5ed255e70114}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Resource Files\Mesh\Dome">
       <UniqueIdentifier>{020c3839-7e6d-4d90-854d-a2689c680951}</UniqueIdentifier>
     </Filter>
@@ -81,6 +78,9 @@
     </Filter>
     <Filter Include="Resource Files\Simple">
       <UniqueIdentifier>{76a23b9c-70a4-412b-83e4-a3c22d54bded}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\Mesh\Ghost">
+      <UniqueIdentifier>{ee06929e-50ad-40c2-9c06-5ed255e70114}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -133,6 +133,9 @@
       <Filter>Source Files\Mesh</Filter>
     </ClCompile>
     <ClCompile Include="SimpleTexture.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="TeapotSpotlight.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -188,6 +191,9 @@
     <ClInclude Include="SimpleTexture.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="TeapotSpotlight.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="depth_ps.hlsl">
@@ -203,10 +209,10 @@
       <Filter>Resource Files\Mesh\Dome</Filter>
     </FxCompile>
     <FxCompile Include="firefly_ps.hlsl">
-      <Filter>Resource Files\Mesh\Firefly</Filter>
+      <Filter>Resource Files\Mesh\Ghost</Filter>
     </FxCompile>
     <FxCompile Include="firefly_vs.hlsl">
-      <Filter>Resource Files\Mesh\Firefly</Filter>
+      <Filter>Resource Files\Mesh\Ghost</Filter>
     </FxCompile>
     <FxCompile Include="moon_ps.hlsl">
       <Filter>Resource Files\Mesh\Moon</Filter>

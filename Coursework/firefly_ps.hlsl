@@ -108,43 +108,42 @@ float4 CalculateSpotlight(float3 moonPos, float3 lightDirection, float cutoff, f
 {
     lightDirection = normalize(lightDirection);
 
-    // Initialize the final spotlight contribution as black.
-    float3 finalColor = float3(0.0f, 0.0f, 0.0f);
+    // Enhanced spotlight parameters
+    float range = 200.0f; // Increased effective range
+    float brightnessFactor = 15.0f; // Increased brightness
+    float focusFactor = 4.0f; // Tighter focus control
 
-    // Set spotlight range and brightness factors for its intensity.
-    float range = 150.0f; // Effective range of the spotlight.
-    float brightnessFactor = 8.0f; // Controls spotlight brightness.
-
-    // Compute the light vector and distance from the light to the fragment.
+    // Compute light vector and distance
     float3 lightVector = moonPos - worldPos;
     float distance = length(lightVector);
     float3 lightDir = normalize(lightVector);
 
-    // Calculate the diffuse lighting contribution.
+    // Calculate diffuse lighting
     float diffuseFactor = max(dot(normal, lightDir), 0.0f);
 
-    // Check if the fragment is within the spotlight's range and is lit.
+    // Initialize final color
+    float3 finalColor = float3(0.0f, 0.0f, 0.0f);
+
     if (diffuseFactor > 0.0f && distance <= range)
     {
-        // Compute the spotlight effect based on the angle between its direction and the light vector.
+        // Calculate spotlight cone effect with sharper falloff
         float spotEffect = dot(normalize(-lightDirection), lightDir);
-        spotEffect = saturate(spotEffect); // Clamp -> [0, 1].
-
-        // Check if the angle is within the spotlight's cutoff.
-        if (spotEffect > cutoff)
-        {
-            // Apply a falloff factor to the spotlight's intensity.
-            float angleEffect = pow(spotEffect, falloff);
-
-            // Calculate linear attenuation based on the distance from the spotlight.
-            float attenuation = saturate(1.0f - (distance / range));
-
-            // Combine all factors to compute the final spotlight contribution.
-            finalColor += lightColour.rgb * diffuseFactor * angleEffect * attenuation * brightnessFactor;
-        }
+        float coneEffect = smoothstep(cutoff, cutoff + 0.2f, spotEffect);
+        
+        // Apply falloff with more control
+        float angleEffect = pow(spotEffect, falloff * focusFactor);
+        
+        // Distance attenuation with softer falloff
+        float attenuation = 1.0f - smoothstep(range * 0.7f, range, distance);
+        
+        // Combine all factors with enhanced brightness
+        finalColor = lightColour.rgb * diffuseFactor * angleEffect * attenuation * brightnessFactor;
+        
+        // Add central hotspot for more realistic spotlight
+        float hotspot = pow(spotEffect, falloff * 2.0f);
+        finalColor += lightColour.rgb * hotspot * brightnessFactor * 0.5f;
     }
 
-    // Return the spotlight contribution with the original alpha value.
     return float4(saturate(finalColor), lightColour.a);
 }
 
@@ -198,7 +197,7 @@ float4 main(InputType input) : SV_TARGET
     /****************************************************************************************************************************/
     
     // Calculate spotlight (moonlight)
-    float4 spotlight = CalculateSpotlight(moonPos, spotlightDirection, spotlightCutoff, spotlightFalloff, input.worldPosition, normalize(input.normal), spotlightColour);
+    float4 spotlight = CalculateSpotlight(moonPos, spotlightDirection, spotlightCutoff, spotlightFalloff, input.worldPosition, normalize(input.normal), spotlightColour) * 1.5f;
     float3 normalizedSpotlightDirection = normalize(spotlightDirection);
 
     // Calculate specular light from the spotlight

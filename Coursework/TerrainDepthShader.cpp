@@ -105,6 +105,22 @@ void TerrainDepthShader::initShader(const wchar_t* vsFilename, const wchar_t* hs
 	samplerDesc.MinLOD = 0;
 	samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
 	renderer->CreateSamplerState(&samplerDesc, &textureSamplerState);
+
+	// rasterizer state with counter-clockwise culling
+	D3D11_RASTERIZER_DESC rasterDesc;
+	ZeroMemory(&rasterDesc, sizeof(D3D11_RASTERIZER_DESC));
+
+	rasterDesc.FillMode = D3D11_FILL_SOLID;
+	rasterDesc.CullMode = D3D11_CULL_BACK;
+	rasterDesc.FrontCounterClockwise = false;
+	rasterDesc.DepthClipEnable = true;
+	rasterDesc.DepthBias = 25;
+	rasterDesc.SlopeScaledDepthBias = 0.5f;
+	rasterDesc.DepthBiasClamp = 0.0f;
+	rasterDesc.ScissorEnable = false;
+	rasterDesc.MultisampleEnable = false;
+	rasterDesc.AntialiasedLineEnable = false;
+	renderer->CreateRasterizerState(&rasterDesc, &rasterState);
 }
 
 void TerrainDepthShader::setShaderParameters(ID3D11DeviceContext* deviceContext, const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, ID3D11ShaderResourceView* terrain, ID3D11ShaderResourceView* texture_height, Camera* camera)
@@ -140,6 +156,5 @@ void TerrainDepthShader::setShaderParameters(ID3D11DeviceContext* deviceContext,
 	deviceContext->DSSetShaderResources(0, 1, &terrain);
 	deviceContext->DSSetSamplers(0, 1, &terrainSampleState);
 
-	deviceContext->DSSetShaderResources(1, 1, &texture_height);
-	deviceContext->DSSetSamplers(1, 1, &textureSamplerState);
+	//deviceContext->RSSetState(rasterState);
 }

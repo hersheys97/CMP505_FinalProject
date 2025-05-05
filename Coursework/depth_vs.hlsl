@@ -25,6 +25,7 @@ struct OutputType
 {
     float4 position : SV_POSITION;
     float4 depthPosition : TEXCOORD0;
+    float3 worldPos : TEXCOORD1;
 };
 
 /****************************************************************************************************************************/
@@ -34,6 +35,9 @@ OutputType main(InputType input)
 {
     OutputType output;
 
+    float4 worldPosition = mul(input.position, worldMatrix);
+    output.worldPos = worldPosition.xyz;
+    
     output.position = mul(input.position, worldMatrix); // Transform position to world space
     output.position = mul(output.position, viewMatrix); // to camera view space
     output.position = mul(output.position, projectionMatrix); // to screen space

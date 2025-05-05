@@ -61,26 +61,15 @@ struct OutputType
 OutputType main(ConstantOutputType input, float3 bary : SV_DomainLocation, const OutputPatch<InputType, 3> patch)
 {
     OutputType output;
- 
-    // Compute the vertex position by interpolating the positions of the three control points based on the UV coordinates
-    //float3 vertexPosition = uvCoord.x * patch[0].position + uvCoord.y * patch[1].position + uvCoord.z * patch[2].position;
-    //
-    //// Interpolate the texture coordinates for the patch
-    //float2 texCoords = uvCoord.x * patch[0].tex + uvCoord.y * patch[1].tex + uvCoord.z * patch[2].tex;
-    //
-    //// Apply heightmap displacement
-    //float height = terrainTexture.SampleLevel(terrainSample, texCoords, 0).r;
-    //vertexPosition.y += height;
     
-    
-    // Interpolate using proper barycentric coordinates
+    // --- Barycentric Interpolation ---
     float3 vertexPosition = bary.x * patch[0].position + bary.y * patch[1].position + bary.z * patch[2].position;
     float2 texCoords = bary.x * patch[0].tex + bary.y * patch[1].tex + bary.z * patch[2].tex;
+    float3 normal = bary.x * patch[0].normal + bary.y * patch[1].normal + bary.z * patch[2].normal;
 
     // Enhanced displacement with scaling
     float height = terrainTexture.SampleLevel(terrainSample, texCoords, 0).r;
-    //vertexPosition.y += height * 30.0f; // Increased multiplier
-    vertexPosition += normalize(vertexPosition) * height * 0.5f; // cube mesh
+    vertexPosition.y += height * 0.2f;
     
     // World space transformation (to clip space)
     float4 worldPos = mul(float4(vertexPosition, 1.0f), worldMatrix);
@@ -89,20 +78,9 @@ OutputType main(ConstantOutputType input, float3 bary : SV_DomainLocation, const
 
     output.position = projPos;
     output.worldPosition = worldPos.xyz;
-    
-    float3x3 worldNormalMatrix = (float3x3) worldMatrix;
-    output.worldNormal = normalize(mul(patch[0].normal, worldNormalMatrix));
-    
-    //float3 normal = bary.x * patch[0].normal + bary.y * patch[1].normal + bary.z * patch[2].normal;
-    //output.normal = normalize(patch[0].normal);
-    
-    //output.normal = normalize(normal);
-    
-    float3 faceNormal = normalize(cross(patch[1].position - patch[0].position, patch[2].position - patch[0].position));
-    output.normal = normalize(mul(faceNormal, (float3x3) worldMatrix));
-    
-    output.worldNormal = normalize(mul(faceNormal, (float3x3) worldMatrix));
-    
+    output.worldNormal = normalize(mul(patch[0].normal, (float3x3) worldMatrix));
+    output.normal = normalize(normal);
+
     // Light space transformation - spotlight
     float4 lightPos = mul(worldPos, lightViewMatrix);
     output.lightViewPos = mul(lightPos, lightProjectionMatrix);
@@ -112,10 +90,10 @@ OutputType main(ConstantOutputType input, float3 bary : SV_DomainLocation, const
     output.lightViewPos2 = mul(lightPos2, lightProjectionMatrix2);
     
     // Repeat the texture
-    output.tex = texCoords * 2.5f;
+    output.tex = texCoords * 3.f;
     
     // View vector for lighting
-    output.viewVector = normalize(cameraPosition - worldPos.xyz);
+    output.viewVector = cameraPosition - worldPos.xyz;
 
     return output;
 }

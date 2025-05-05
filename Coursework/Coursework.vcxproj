@@ -178,6 +178,7 @@
     <ClCompile Include="MoonShader.cpp" />
     <ClCompile Include="Player.cpp" />
     <ClCompile Include="SimpleTexture.cpp" />
+    <ClCompile Include="TeapotSpotlight.cpp" />
     <ClCompile Include="TerrainDepthShader.cpp" />
     <ClCompile Include="TerrainManipulation.cpp" />
     <ClCompile Include="VoronoiIslands.cpp" />
@@ -197,6 +198,7 @@
     <ClInclude Include="Player.h" />
     <ClInclude Include="SceneData.h" />
     <ClInclude Include="SimpleTexture.h" />
+    <ClInclude Include="TeapotSpotlight.h" />
     <ClInclude Include="TerrainDepthShader.h" />
     <ClInclude Include="TerrainManipulation.h" />
     <ClInclude Include="VoronoiIslands.h" />

@@ -2,6 +2,7 @@
 #define _GHOSTSHADER_H_
 
 #include "DXF.h"
+#include "TeapotSpotlight.h"
 
 using namespace std;
 using namespace DirectX;

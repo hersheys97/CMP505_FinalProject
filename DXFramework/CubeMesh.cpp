@@ -28,7 +28,7 @@ void CubeMesh::initBuffers(ID3D11Device* device)
 	D3D11_SUBRESOURCE_DATA vertexData, indexData;
 
 	// 6 vertices per quad, res*res is face, times 6 for each face
-	vertexCount = ((6 * resolution)*resolution) * 6;
+	vertexCount = ((6 * resolution) * resolution) * 6;
 
 	indexCount = vertexCount;
 
@@ -52,7 +52,7 @@ void CubeMesh::initBuffers(ID3D11Device* device)
 
 	//front face
 
-	for (int y = 0; y<resolution; y++)	// for each quad in the y direction
+	for (int y = 0; y < resolution; y++)	// for each quad in the y direction
 	{
 		for (int x = 0; x < resolution; x++)	// for each quad in the x direction
 		{
@@ -131,7 +131,7 @@ void CubeMesh::initBuffers(ID3D11Device* device)
 	//back face
 	ystart = 1;
 	xstart = 1;
-	for (int y = 0; y<resolution; y++)	// for each quad in the y direction
+	for (int y = 0; y < resolution; y++)	// for each quad in the y direction
 	{
 		for (int x = 0; x < resolution; x++)	// for each quad in the x direction
 		{
@@ -210,7 +210,7 @@ void CubeMesh::initBuffers(ID3D11Device* device)
 	//right face
 	ystart = 1;
 	xstart = -1;
-	for (int y = 0; y<resolution; y++)	// for each quad in the y direction
+	for (int y = 0; y < resolution; y++)	// for each quad in the y direction
 	{
 		for (int x = 0; x < resolution; x++)	// for each quad in the x direction
 		{
@@ -287,7 +287,7 @@ void CubeMesh::initBuffers(ID3D11Device* device)
 	//left face
 	ystart = 1;
 	xstart = 1;
-	for (int y = 0; y<resolution; y++)	// for each quad in the y direction
+	for (int y = 0; y < resolution; y++)	// for each quad in the y direction
 	{
 		for (int x = 0; x < resolution; x++)	// for each quad in the x direction
 		{
@@ -364,7 +364,7 @@ void CubeMesh::initBuffers(ID3D11Device* device)
 	ystart = 1;
 	xstart = -1;
 
-	for (int y = 0; y<resolution; y++)	// for each quad in the y direction
+	for (int y = 0; y < resolution; y++)	// for each quad in the y direction
 	{
 		for (int x = 0; x < resolution; x++)	// for each quad in the x direction
 		{
@@ -441,7 +441,7 @@ void CubeMesh::initBuffers(ID3D11Device* device)
 	ystart = -1;
 	xstart = -1;
 
-	for (int y = 0; y<resolution; y++)	// for each quad in the y direction
+	for (int y = 0; y < resolution; y++)	// for each quad in the y direction
 	{
 		for (int x = 0; x < resolution; x++)	// for each quad in the x direction
 		{
@@ -512,10 +512,10 @@ void CubeMesh::initBuffers(ID3D11Device* device)
 		txv += txvinc;
 	}
 
-	
+
 	// Set up the description of the static vertex buffer.
 	vertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-	vertexBufferDesc.ByteWidth = sizeof(VertexType)* vertexCount;
+	vertexBufferDesc.ByteWidth = sizeof(VertexType) * vertexCount;
 	vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	vertexBufferDesc.CPUAccessFlags = 0;
 	vertexBufferDesc.MiscFlags = 0;
@@ -529,7 +529,7 @@ void CubeMesh::initBuffers(ID3D11Device* device)
 
 	// Set up the description of the static index buffer.
 	indexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-	indexBufferDesc.ByteWidth = sizeof(unsigned long)* indexCount;
+	indexBufferDesc.ByteWidth = sizeof(unsigned long) * indexCount;
 	indexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
 	indexBufferDesc.CPUAccessFlags = 0;
 	indexBufferDesc.MiscFlags = 0;
@@ -548,4 +548,3 @@ void CubeMesh::initBuffers(ID3D11Device* device)
 	delete[] indices;
 	indices = 0;
 }
-

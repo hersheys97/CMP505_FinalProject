@@ -238,7 +238,7 @@ float4 main(InputType input) : SV_TARGET
     float4 pointLight2 = CalculatePointLight(pointLight2Pos, pointLight2Radius, input.worldPosition, worldNormal, pointLight2Colour);
     
     // Point lights intensity
-    float intensityFactor = 0.7f;
+    float intensityFactor = 5.f;
     pointLight1 *= intensityFactor;
     pointLight2 *= intensityFactor;
     

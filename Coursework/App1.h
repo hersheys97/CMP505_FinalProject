@@ -20,9 +20,9 @@
 #include "VoronoiIslands.h"
 #include "FMODAudioSystem.h"
 #include "Ghost.h"
+#include "TeapotSpotlight.h"
 
 enum class AppMode { FlyCam, Play };
-
 extern AppMode currentMode;
 
 class App1 : public BaseApplication
@@ -76,9 +76,9 @@ private:
 	void updateGhostAudio(float deltaTime);
 
 	// World generation methods
-	void generateIslands(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, bool depth);
-	void generateBridges(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, bool depth);
-	void generatePickups(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, bool depth);
+	void generateIslands(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, bool depth, const XMMATRIX& lightViewMatrix, const XMMATRIX& lightProjectionMatrix);
+	void generateBridges(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, bool depth, const XMMATRIX& lightViewMatrix, const XMMATRIX& lightProjectionMatrix);
+	void generatePickups(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, bool depth, const XMMATRIX& lightViewMatrix, const XMMATRIX& lightProjectionMatrix);
 
 	// Cleanup
 	void cleanup();
@@ -118,6 +118,7 @@ private:
 	Light* directionalLight;
 	Light* pointLight1;
 	Light* pointLight2;
+	vector<TeapotSpotlight> teapotSpotlights;
 
 	// Game entities
 	Player* player;

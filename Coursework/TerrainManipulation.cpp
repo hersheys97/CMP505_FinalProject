@@ -275,6 +275,7 @@ void TerrainManipulation::setShaderParameters(ID3D11DeviceContext* deviceContext
 	deviceContext->Unmap(matrixBuffer, 0);
 	deviceContext->DSSetConstantBuffers(0, 1, &matrixBuffer);
 	deviceContext->VSSetConstantBuffers(0, 1, &matrixBuffer);
+	deviceContext->HSSetConstantBuffers(1, 1, &matrixBuffer);
 
 	CameraBufferType* cameraPtr;
 	deviceContext->Map(cameraBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);

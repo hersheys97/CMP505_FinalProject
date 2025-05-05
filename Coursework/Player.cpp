@@ -22,7 +22,7 @@ T clamp(T v, T lo, T hi) {
 Player::Player() :
 	position({ 58.881f, 8.507f, 68.2f }),
 	velocity({ 0.f, 0.f, 0.f }),
-	rotation({ 0.f, 0.f, 0.f }),
+	rotation({ 0.f, 90.f, 0.f }),
 	speed(40.0f),
 	camEyeHeight(3.f),
 	jumpForce(7.0f),
@@ -242,7 +242,7 @@ void Player::updateCameraPosition(Camera* camera)
 void Player::resetParams()
 {
 	velocity = { 0.f, 0.f, 0.f };
-	rotation = { 0.f, 0.f, 0.f };
+	rotation = { 0.f, 90.f, 0.f };
 	isJumping = false;
 }
 
