@@ -78,7 +78,7 @@ void App1::renderToTexture() {
 	XMFLOAT3 playerPos = player->getPosition();
 
 	// Update point light to player's position
-	sceneData->setPointLight1Position(playerPos.x, playerPos.y + 10.f, playerPos.z);
+	sceneData->setPointLight1Position(playerPos.x, playerPos.y + 8.f, playerPos.z);
 
 	spotLight->setDiffuseColour(sceneData->lightData.diffuseColour[0], sceneData->lightData.diffuseColour[1], sceneData->lightData.diffuseColour[2], sceneData->lightData.diffuseColour[3]);
 	spotLight->setDirection(sceneData->shadowLightsData.lightDirections[0][0], sceneData->shadowLightsData.lightDirections[0][1], sceneData->shadowLightsData.lightDirections[0][2]);
@@ -140,8 +140,8 @@ void App1::renderAudio() {
 	audioSystem.updateListenerPosition(camPos, camForward, camUp);
 
 	// Update island ambiences - always pass the closest island
-	if (voronoiIslands) {
-		int closestIsland = voronoiIslands->GetClosestIslandIndex(camPos);
+	if (islandBounds) {
+		int closestIsland = islandBounds->GetClosestIslandIndex(camPos);
 		if (closestIsland >= 0) audioSystem.updateIslandAmbiences(camPos, closestIsland);
 	}
 }
@@ -163,9 +163,9 @@ void App1::renderPlayer() {
 			return;
 		}
 
-		player->updatePlayer(dt, input, terrainShader, camera, &audioSystem, voronoiIslands.get());
+		player->updatePlayer(dt, input, terrainShader, camera, &audioSystem, islandBounds.get());
 		player->handleMouseLook(input, dt, hwnd, sceneWidth, sceneHeight);
-		player->handlePlayModeReset(voronoiIslands.get(), terrainShader, camera);
+		player->handlePlayModeReset(islandBounds.get(), terrainShader, camera);
 		player->handleSonar(input, &audioSystem);
 		audioSystem.playGhostWhisper(sceneData->ghostData.position);
 		audioSystem.playBGM1();
@@ -218,7 +218,7 @@ void App1::handleGhostRespawn() {
 	}
 
 	if (!sceneData->ghostData.respondingToSonar) {
-		const auto& islands = voronoiIslands->GetIslands();
+		const auto& islands = islandBounds->GetIslands();
 		if (!islands.empty()) {
 			sceneData->ghostData.currentIslandIndex = rand() % islands.size();
 			const auto& island = islands[sceneData->ghostData.currentIslandIndex];
@@ -263,7 +263,7 @@ void App1::updateSonarResponse(float deltaTime) {
 		sceneData->ghostData.sonarResponseTimer = 0.0f;
 
 		// Respawn ghost to a random island position
-		const auto& islands = voronoiIslands->GetIslands();
+		const auto& islands = islandBounds->GetIslands();
 		if (!islands.empty()) {
 			sceneData->ghostData.currentIslandIndex = rand() % islands.size();
 			const auto& island = islands[sceneData->ghostData.currentIslandIndex];
@@ -296,7 +296,7 @@ void App1::updateSonarResponse(float deltaTime) {
 }
 
 void App1::handleNormalWandering(float deltaTime) {
-	const auto& island = voronoiIslands->GetIslands()[sceneData->ghostData.currentIslandIndex];
+	const auto& island = islandBounds->GetIslands()[sceneData->ghostData.currentIslandIndex];
 	float halfSize = 25.0f;
 	float minX = island.position.x - halfSize;
 	float maxX = island.position.x + halfSize;
@@ -411,6 +411,9 @@ void App1::getShadowDepthMap(const XMMATRIX& worldMatrix, const XMMATRIX& viewMa
 		// 1. Set Shadow Map as Render Target
 		shadowMap[i]->BindDsvAndSetNullRenderTarget(renderer->getDeviceContext());
 
+
+
+
 		// Set up light matrices
 		XMFLOAT3 lightPos = currentLight->getPosition();
 		XMFLOAT3 lightDir = currentLight->getDirection();
@@ -430,6 +433,19 @@ void App1::getShadowDepthMap(const XMMATRIX& worldMatrix, const XMMATRIX& viewMa
 
 		XMMATRIX lightViewMatrix = currentLight->getViewMatrix();
 		XMMATRIX lightProjectionMatrix = currentLight->getOrthoMatrix();
+
+
+
+		//currentLight->generateOrthoMatrix(SCREEN_WIDTH, SCREEN_HEIGHT, 0.1f, 500.0f);
+		//currentLight->generateViewMatrix(); // Uses fixed LookToLH now
+
+		//// 3. Get matrices AFTER setting them up
+		//XMMATRIX lightView = currentLight->getViewMatrix();
+		//XMMATRIX lightProj = currentLight->getOrthoMatrix();
+
+
+
+
 
 		// 3. Apply Depth Shader to the meshes
 
@@ -459,6 +475,18 @@ void App1::getShadowDepthMap(const XMMATRIX& worldMatrix, const XMMATRIX& viewMa
 // Final Render
 void App1::finalRender(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, const XMMATRIX& identityMatrix)
 {
+	if (wireframeToggle && !sceneData->sonarData.isActive) {
+		sceneData->shadowLightsData.dirColour[0] = 1.f;
+		sceneData->shadowLightsData.dirColour[1] = 1.f;
+		sceneData->shadowLightsData.dirColour[2] = 1.f;
+	}
+	else {
+		sceneData->shadowLightsData.dirColour[0] = 0.f;
+		sceneData->shadowLightsData.dirColour[1] = 0.023f;
+		sceneData->shadowLightsData.dirColour[2] = 0.035f;
+	}
+
+
 	//A conditional check ensures that tessellation is only applied if it has been enabled in the GUI. If enabled, tessellated meshes are loaded for rendering. Also, wireframe is enabled.
 	if (sceneData->tessMesh)
 	{
@@ -467,6 +495,7 @@ void App1::finalRender(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, 
 	}
 	else if (!sceneData->tessMesh)
 	{
+		renderer->setAlphaBlending(true);
 		// Post-processing effect: Bloom on stars texture along with Gaussian blur
 		applyBloom(worldMatrix, identityMatrix, projectionMatrix);
 
@@ -513,12 +542,12 @@ void App1::renderDome(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, c
 	domeShader->render(renderer->getDeviceContext(), circleDome->getIndexCount());
 }
 
-// Procedural Generation of Voronoi Islands
-// Based on the number of islands, that many Voronoi regions are created in voronoiIslands.GenerateVoronoiRegions(). Then, inside each Voronoi region, an island is spawn with a random position and rotation. After that, each island connects to one other island with a bridge. The islands have collision detection with the Player (Play Mode) or the Camera (Fly Mode).
+// Procedural Generation of Island Bounds
+// Based on the number of islands, that many island bounds are created. Then, inside each island bound, an island is spawn with a random position and rotation. After that, each island connects to one other island with a bridge. The islands have collision detection with the Player (Play Mode) or the Camera (Fly Mode).
 
 void App1::generateIslands(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, bool depth, const XMMATRIX& lightViewMatrix, const XMMATRIX& lightProjectionMatrix) {
 	constexpr float ISLAND_SCALE = 50.0f;
-	auto& islands = voronoiIslands->GetIslands();
+	auto& islands = islandBounds->GetIslands();
 
 	// Clear existing ambiences only on first generation
 	if (sceneData->firstTimeGeneratingIslands) {
@@ -561,7 +590,7 @@ void App1::generateIslands(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatr
 void App1::generatePickups(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, bool depth, const XMMATRIX& lightViewMatrix, const XMMATRIX& lightProjectionMatrix) {
 	const float scaleTeapot = 0.2f;
 
-	for (const auto& island : voronoiIslands->GetIslands()) {
+	for (const auto& island : islandBounds->GetIslands()) {
 		if (!island.initialized) continue;
 
 		for (const auto& position : island.pickupPositions) {
@@ -587,9 +616,9 @@ void App1::generateBridges(const XMMATRIX& worldMatrix, const XMMATRIX& viewMatr
 	constexpr float BRIDGE_WIDTH = 5.0f;
 	constexpr float BRIDGE_HEIGHT = 0.5f;
 	constexpr float HALF_REGION_SIZE = 75.0f;
-	const auto& islands = voronoiIslands->GetIslands();
+	const auto& islands = islandBounds->GetIslands();
 
-	for (const auto& bridge : voronoiIslands->GetBridges())
+	for (const auto& bridge : islandBounds->GetBridges())
 	{
 		const auto& islandA = islands[bridge.islandA];
 		const auto& islandB = islands[bridge.islandB];
@@ -707,8 +736,6 @@ void App1::gui()
 			camera->getRotation().x, camera->getRotation().y, camera->getRotation().z);
 		ImGui::Text("Player Position: X = %.3f, Y = %.3f, Z = %.3f",
 			player->getPosition().x, player->getPosition().y, player->getPosition().z);
-		ImGui::Text("PL1 Position: X = %.3f, Y = %.3f, Z = %.3f",
-			pointLight1->getPosition().x, pointLight1->getPosition().y, pointLight1->getPosition().z);
 	}
 	if (ImGui::CollapsingHeader("Lighting Settings"))
 	{
@@ -716,20 +743,6 @@ void App1::gui()
 		ImGui::ColorEdit4("Diffuse Colour", sceneData->lightData.diffuseColour);
 		ImGui::SliderFloat("Specular Power", &sceneData->lightData.spec_pow, 0.1f, 1000.f);
 		ImGui::ColorEdit4("Specular Colour", sceneData->lightData.specularColour);
-
-		ImGui::Separator();
-
-		ImGui::Text("Point Light 1");
-		ImGui::SliderFloat3("Position 1", sceneData->lightData.pointLight_pos1, 0.0f, 90.0);
-		ImGui::SliderFloat("Radius 1", &sceneData->lightData.pointLightRadius[0], 0.f, 10.f);
-		ImGui::ColorEdit4("Colour 1", sceneData->lightData.pointLight1Colour);
-
-		ImGui::Separator();
-
-		ImGui::Text("Point Light 2");
-		ImGui::SliderFloat3("Position 2", sceneData->lightData.pointLight_pos2, 0.0f, 90.0);
-		ImGui::SliderFloat("Radius 2", &sceneData->lightData.pointLightRadius[1], 0.f, 10.f);
-		ImGui::ColorEdit4("Colour 2", sceneData->lightData.pointLight2Colour);
 
 		ImGui::Separator();
 
@@ -748,12 +761,6 @@ void App1::gui()
 		ImGui::SliderFloat3("Direction", sceneData->shadowLightsData.lightDirections[1], -1.0f, 1.0f);
 		ImGui::ColorEdit4("Colour 4", sceneData->shadowLightsData.dirColour);
 		ImGui::SliderFloat3("Position 4", sceneData->shadowLightsData.dir_pos, -15.f, 250.0f);
-	}
-	if (ImGui::CollapsingHeader("Water Settings"))
-	{
-		ImGui::SliderFloat("Amplitude", &sceneData->waterData.amplitude, 0.0f, 3.0f, "%.2f", 1.0F);
-		ImGui::SliderFloat("Frequency", &sceneData->waterData.frequency, 0.0f, 5.f, "%.2f", 1.0F);
-		ImGui::SliderFloat("Speed", &sceneData->waterData.speed, 0.0f, 5.0f, "%.2f", 1.0F);
 	}
 	if (ImGui::CollapsingHeader("Bloom Effect Settings"))
 	{
@@ -782,17 +789,17 @@ void App1::gui()
 
 	ImGui::Separator();
 
-	ImGui::Text("Voronoi Islands");
+	ImGui::Text("Islands");
 	ImGui::SliderInt("Island Count", &sceneData->islandCount, 2, 6);
 
 	if (ImGui::Button("Regenerate Islands")) {
 		sceneData->gridSize = max(sceneData->gridSize, static_cast<int>(sceneData->islandSize * 2));
-		voronoiIslands = make_unique<Voronoi::VoronoiIslands>(sceneData->gridSize, sceneData->islandCount);
-		voronoiIslands->GenerateIslands();
-		terrainShader->setIslands(voronoiIslands->GetIslands(), sceneData->islandSize);
-		terrainShader->setBridges(voronoiIslands->GetBridges(), voronoiIslands->GetIslands());
+		islandBounds = make_unique<Islands>(sceneData->gridSize, sceneData->islandCount);
+		islandBounds->GenerateIslands();
+		terrainShader->setIslands(islandBounds->GetIslands(), sceneData->islandSize);
+		terrainShader->setBridges(islandBounds->GetBridges(), islandBounds->GetIslands());
 		audioSystem.stopAllIslandAmbience();
-		for (auto& island : voronoiIslands->GetIslands()) {
+		for (auto& island : islandBounds->GetIslands()) {
 			float height = terrainShader->getHeight(island.position.x, island.position.z);
 			XMFLOAT3 pos = XMFLOAT3(island.position.x, height, island.position.z);
 			audioSystem.createIslandAmbience(pos);
@@ -811,21 +818,6 @@ void App1::gui()
 	{
 		camera->setPosition(40.8f, 13.f, -11.8f);
 		camera->setRotation(2.3f, 9.9f, 0.f);
-	}
-	if (ImGui::Button("Left View"))
-	{
-		camera->setPosition(-36.2f, 64.f, 52.6f);
-		camera->setRotation(36.0f, 92.0f, 0.f);
-	}
-	if (ImGui::Button("Right View"))
-	{
-		camera->setPosition(122.8f, 74.f, 52.4f);
-		camera->setRotation(48.0f, -94.3f, 0.f);
-	}
-	if (ImGui::Button("Opposite View"))
-	{
-		camera->setPosition(82.5f, 100.2f, 131.8f);
-		camera->setRotation(52.0f, -168.35f, 0.f);
 	}
 	if (ImGui::Button("Top-down View"))
 	{
@@ -856,19 +848,6 @@ void App1::gui()
 	{
 		sceneData->bloomData.blurAmount = 0.5f;
 		sceneData->bloomData.blurIntensity = 0.5f;
-	}
-
-	ImGui::Separator();
-
-	ImGui::Text("Shadows");
-
-	if (ImGui::Button("Toggle Spotlight"))
-	{
-		sceneData->toggleSpotShadow();
-	}
-	if (ImGui::Button("Toggle Directional Light"))
-	{
-		sceneData->toggleDirShadow();
 	}
 
 	ImGui::Separator();
@@ -944,12 +923,12 @@ void App1::initComponents() {
 	topTerrain = new CubeMesh(renderer->getDevice(), renderer->getDeviceContext());
 	terrainShader = new TerrainManipulation(renderer->getDevice(), hwnd);
 
-	// Voronoi Islands
+	// Islands
 	textureMgr->loadTexture(L"island_floor", L"res/Floor_Black.jpg");
-	voronoiIslands = make_unique<Voronoi::VoronoiIslands>(sceneData->gridSize, sceneData->islandCount);
-	voronoiIslands->GenerateIslands();
-	terrainShader->setIslands(voronoiIslands->GetIslands(), sceneData->islandSize);
-	terrainShader->setBridges(voronoiIslands->GetBridges(), voronoiIslands->GetIslands());
+	islandBounds = make_unique<Islands>(sceneData->gridSize, sceneData->islandCount);
+	islandBounds->GenerateIslands();
+	terrainShader->setIslands(islandBounds->GetIslands(), sceneData->islandSize);
+	terrainShader->setBridges(islandBounds->GetBridges(), islandBounds->GetIslands());
 
 	// Water
 	water = new PlaneMesh(renderer->getDevice(), renderer->getDeviceContext());

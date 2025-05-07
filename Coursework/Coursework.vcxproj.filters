@@ -129,7 +129,7 @@
     <ClCompile Include="Ghost.cpp">
       <Filter>Source Files\Actors</Filter>
     </ClCompile>
-    <ClCompile Include="VoronoiIslands.cpp">
+    <ClCompile Include="Islands.cpp">
       <Filter>Source Files\Mesh</Filter>
     </ClCompile>
     <ClCompile Include="SimpleTexture.cpp">
@@ -185,7 +185,7 @@
     <ClInclude Include="FMODAudioSystem.h">
       <Filter>Header Files\Audio</Filter>
     </ClInclude>
-    <ClInclude Include="VoronoiIslands.h">
+    <ClInclude Include="Islands.h">
       <Filter>Header Files\Mesh</Filter>
     </ClInclude>
     <ClInclude Include="SimpleTexture.h">

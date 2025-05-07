@@ -1,7 +1,7 @@
 #pragma once
 #include <DirectXMath.h>
 #include "FMODAudioSystem.h"
-#include "VoronoiIslands.h"
+#include "Islands.h"
 #include "SceneData.h"
 
 // Forward declarations
@@ -20,7 +20,7 @@ public:
 
 	bool IsActive() const;
 	const GhostData& GetData() const { return sceneData->ghostData; }
-	void SetVoronoiIslands(Voronoi::VoronoiIslands* islands) { voronoiIslands = islands; }
+	void SetIslandBounds(Islands* islands) { islandBounds = islands; }
 
 private:
 	void Respawn();
@@ -34,7 +34,7 @@ private:
 
 	SceneData* sceneData;
 	FMODAudioSystem* audioSystem;
-	Voronoi::VoronoiIslands* voronoiIslands;
+	Islands* islandBounds;
 	float chromaticTimeAccumulator = 0.0f;
 };
 

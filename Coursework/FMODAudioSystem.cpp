@@ -1,15 +1,18 @@
 #include "FMODAudioSystem.h"
 
+// Clamps a value between min and max
 template<typename T>
 T clamp(const T& value, const T& min, const T& max) {
 	return (value < min) ? min : (value > max) ? max : value;
 }
 
+// Smoothly transitions between values (used for volume fading)
 inline float smoothstep(float edge0, float edge1, float x) {
 	x = clamp((x - edge0) / (edge1 - edge0), 0.0f, 1.0f);
 	return x * x * (3.0f - 2.0f * x);
 }
 
+// Constructor - Initializes FMOD pointers to nullptr
 FMODAudioSystem::FMODAudioSystem() : studioSystem(nullptr) {
 	bgm.instance = nullptr;
 	bgm.channelGroup = nullptr;
@@ -19,6 +22,7 @@ FMODAudioSystem::FMODAudioSystem() : studioSystem(nullptr) {
 	events.girlWhisper = nullptr;
 }
 
+// Initializes FMOD audio system
 bool FMODAudioSystem::init() {
 	// First check if already initialized
 	if (studioSystem) {
@@ -27,16 +31,16 @@ bool FMODAudioSystem::init() {
 
 	FMOD_RESULT result;
 
-	// 1. Create studio system
+	// 1. Create the main FMOD Studio system
 	result = FMOD::Studio::System::create(&studioSystem);
 	if (result != FMOD_OK || !studioSystem) {
-		OutputDebugStringA("FMOD: Failed to create studio system - ");
+		OutputDebugStringA("FMOD: Failed to create studio system");
 		OutputDebugStringA(FMOD_ErrorString(result));
 		OutputDebugStringA("\n");
 		return false;
 	}
 
-	// 2. Initialize system
+	// 2. Initialize system with 64 channels (audio streams)
 	result = studioSystem->initialize(
 		64,
 		FMOD_STUDIO_INIT_NORMAL,
@@ -51,10 +55,12 @@ bool FMODAudioSystem::init() {
 		return false;
 	}
 
-	// 3. Load banks
+	// 3. Load sound banks (containing all audio events)
 	const vector<string> bankPaths = {
-		"../FMOD Project/CMP505_Audio/Build/Desktop/CMP505.bank",
-		"../FMOD Project/CMP505_Audio/Build/Desktop/CMP505.strings.bank"
+		//"CMP505.bank", // For Release
+		//"CMP505.strings.bank" // For Release
+		"../FMOD Project/CMP505_Audio/Build/Desktop/CMP505.bank", // For Debug
+		"../FMOD Project/CMP505_Audio/Build/Desktop/CMP505.strings.bank" // For Debug
 	};
 
 	bool allBanksLoaded = true;
@@ -78,45 +84,50 @@ bool FMODAudioSystem::init() {
 		OutputDebugStringA("FMOD: Some banks failed to load\n");
 	}
 
-	// Wait for banks to load
+	// Wait for banks to fully load before continuing
 	studioSystem->flushCommands();
 	return true;
 }
 
+// Plays background music (BGM1 event)
 void FMODAudioSystem::playBGM1() {
 	if (!studioSystem || events.bgm1) return; // Already playing
 
+	// Get event description from FMOD project
 	FMOD::Studio::EventDescription* desc = nullptr;
 	FMOD_RESULT result = studioSystem->getEvent("event:/BGM1", &desc);
 	if (result != FMOD_OK || !desc) return;
 
+	// Create and start the music instance
 	result = desc->createInstance(&events.bgm1);
 	if (result == FMOD_OK && events.bgm1) {
 		events.bgm1->start();
 		bgm.started = true;
-		bgm.targetVolume = 0.6f;
+		bgm.targetVolume = 0.6f; // Start at 60% volume
 	}
 }
 
+// Stops background music with fade-out
 void FMODAudioSystem::stopBGM1() {
 	if (events.bgm1) {
-		events.bgm1->stop(FMOD_STUDIO_STOP_ALLOWFADEOUT);
+		events.bgm1->stop(FMOD_STUDIO_STOP_ALLOWFADEOUT); // Smooth fade
 		events.bgm1->release();
 		events.bgm1 = nullptr;
 		bgm.started = false;
 	}
 }
 
+// Updates audio system every frame
 void FMODAudioSystem::update(float deltaTime) {
 	if (!studioSystem) return;
 
-	// BGM volume control
+	// BGM volume control (smooth transitions)
 	if (bgm.started && events.bgm1) {
 		float currentVolume;
 		events.bgm1->getVolume(&currentVolume);
 
-		// Smooth volume transition
-		const float fadeSpeed = 0.2f; // Speed of volume change per second
+		// Smoothly adjust volume toward target
+		const float fadeSpeed = 0.2f; // How fast volume changes
 		const float volumeDelta = fadeSpeed * deltaTime;
 
 		if (currentVolume < bgm.targetVolume) {
@@ -129,13 +140,13 @@ void FMODAudioSystem::update(float deltaTime) {
 		events.bgm1->setVolume(currentVolume);
 	}
 
-	// BGM restore after dimming
+	// Restore BGM after dimming
 	if (bgm.dimmed) {
 		bgm.restoreTimer -= deltaTime;
 		if (bgm.restoreTimer <= 0.0f && bgm.targetVolume < 1.0f) {
-			bgm.targetVolume = 0.6f;
+			bgm.targetVolume = 0.6f; // Return to normal volume
 
-			// Remove lowpass effect
+			// Remove lowpass filter effect
 			if (bgm.lowpass) {
 				if (bgm.channelGroup) {
 					bgm.channelGroup->removeDSP(bgm.lowpass);
@@ -147,13 +158,14 @@ void FMODAudioSystem::update(float deltaTime) {
 		}
 	}
 
-	studioSystem->update();
+	studioSystem->update(); // Must be called every frame
 }
 
-// Play one-shot sound
+// Plays a one-time sound effect
 void FMODAudioSystem::playOneShot(const string& eventPath) {
 	if (!studioSystem) return;
 
+	// Find and play the sound event
 	FMOD::Studio::EventDescription* desc = nullptr;
 	FMOD_RESULT result = studioSystem->getEvent(eventPath.c_str(), &desc);
 	if (result != FMOD_OK || !desc) return;
@@ -162,35 +174,37 @@ void FMODAudioSystem::playOneShot(const string& eventPath) {
 	result = desc->createInstance(&instance);
 	if (result == FMOD_OK && instance) {
 		instance->start();
-		instance->release(); // Release immediately for one-shot sounds
+		instance->release(); // Automatically cleans up after playing
 	}
 }
 
+// Temporarily lowers BGM volume (e.g., for dialogue)
 void FMODAudioSystem::dimBGM(float duration, float targetVolume) {
 	if (!bgm.started || !events.bgm1) return;
 
-	// Use logarithmic scaling for perceived loudness
+	// Logarithmic scaling matches human hearing perception
 	bgm.targetVolume = log10(1 + 9 * targetVolume);
 	bgm.restoreTimer = duration;
 	bgm.dimmed = true;
 
+	// Add audio filter to make music sound "muffled"
 	if (!bgm.lowpass) {
 		FMOD::System* coreSystem = nullptr;
 		studioSystem->getCoreSystem(&coreSystem);
 		if (!coreSystem) return;
 
-		// Use multi-effect processing for natural ducking
+		// Create EQ filter to reduce mid/high frequencies
 		coreSystem->createDSPByType(FMOD_DSP_TYPE_THREE_EQ, &bgm.lowpass);
 		if (bgm.lowpass) {
-			// Reduce mid/high frequencies instead of harsh cutoff
-			bgm.lowpass->setParameterFloat(FMOD_DSP_THREE_EQ_MIDGAIN, -6.0f);
-			bgm.lowpass->setParameterFloat(FMOD_DSP_THREE_EQ_HIGHGAIN, -3.0f);
+			bgm.lowpass->setParameterFloat(FMOD_DSP_THREE_EQ_MIDGAIN, -6.0f); // Reduce mids
+			bgm.lowpass->setParameterFloat(FMOD_DSP_THREE_EQ_HIGHGAIN, -3.0f); // Reduce highs
 
+			// Apply filter to music channel
 			events.bgm1->getChannelGroup(&bgm.channelGroup);
 			if (bgm.channelGroup) {
 				bgm.channelGroup->addDSP(0, bgm.lowpass);
 
-				// Add subtle compression to maintain perceived presence
+				// Add compressor to maintain perceived loudness
 				FMOD::DSP* compressor;
 				coreSystem->createDSPByType(FMOD_DSP_TYPE_COMPRESSOR, &compressor);
 				compressor->setParameterFloat(FMOD_DSP_COMPRESSOR_THRESHOLD, -15.0f);
@@ -200,7 +214,7 @@ void FMODAudioSystem::dimBGM(float duration, float targetVolume) {
 	}
 }
 
-// Release resources
+// Clean up all FMOD resources
 void FMODAudioSystem::release() {
 	// Release DSP effects
 	if (bgm.lowpass) {
@@ -211,7 +225,7 @@ void FMODAudioSystem::release() {
 		bgm.lowpass = nullptr;
 	}
 
-	// Release event instances
+	// Helper to release event instances
 	auto releaseInstance = [](FMOD::Studio::EventInstance*& instance) {
 		if (instance) {
 			instance->stop(FMOD_STUDIO_STOP_IMMEDIATE);
@@ -220,43 +234,47 @@ void FMODAudioSystem::release() {
 		}
 		};
 
+	// Release all sound events
 	releaseInstance(events.bgm1);
 	releaseInstance(events.heavyWhisper);
 	releaseInstance(events.girlWhisper);
 
-	// Release system
+	// Release main system
 	if (studioSystem) {
 		studioSystem->release();
 		studioSystem = nullptr;
 	}
 }
 
+// Plays a ghost whisper sound at 3D position
 void FMODAudioSystem::playGhostWhisper(const XMFLOAT3& position) {
-	if (!studioSystem || events.girlWhisper) return;
+	if (!studioSystem || events.girlWhisper) return; // Already playing
 
+	// Get whisper event from FMOD
 	FMOD::Studio::EventDescription* desc = nullptr;
 	FMOD_RESULT result = studioSystem->getEvent("event:/GirlWhisper", &desc);
 	if (result != FMOD_OK || !desc) return;
 
+	// Create 3D sound instance
 	result = desc->createInstance(&events.girlWhisper);
 	if (result == FMOD_OK && events.girlWhisper) {
-		// Set 3D attributes
+		// Set 3D position/orientation
 		FMOD_3D_ATTRIBUTES attributes = { { 0 } };
 		attributes.position = { position.x, position.y, position.z };
-		attributes.forward = { 0, 0, 1 };
-		attributes.up = { 0, 1, 0 };
+		attributes.forward = { 0, 0, 1 }; // Facing forward
+		attributes.up = { 0, 1, 0 };// Up direction
 		events.girlWhisper->set3DAttributes(&attributes);
 
-		// Start with minimum volume - it will be updated in updateGhostWhisperVolume
-		events.girlWhisper->setVolume(0.3f);  // Start slightly louder
+		events.girlWhisper->setVolume(0.3f); // Start volume
 		events.girlWhisper->start();
 
-		// Initialize ghost effects
+		// Initialize ghost effect variables
 		ghostEffectIntensity = 0.0f;
 		ghostEffectTimer = 0.0f;
 	}
 }
 
+// Stops ghost whisper with fade-out
 void FMODAudioSystem::stopGhostWhisper() {
 	if (events.girlWhisper) {
 		events.girlWhisper->stop(FMOD_STUDIO_STOP_ALLOWFADEOUT);
@@ -265,12 +283,13 @@ void FMODAudioSystem::stopGhostWhisper() {
 	}
 }
 
+// Updates ghost's 3D position (for movement/Doppler effect)
 void FMODAudioSystem::updateGhostPosition(const XMFLOAT3& position) {
 	if (events.girlWhisper) {
 		FMOD_3D_ATTRIBUTES attributes = { { 0 } };
 		attributes.position = { position.x, position.y, position.z };
-		attributes.forward = { 0, 0, 1 };  // Default forward
-		attributes.up = { 0, 1, 0 };       // Default up
+		attributes.forward = { 0, 0, 1 };
+		attributes.up = { 0, 1, 0 };
 
 		// Calculate velocity for Doppler effect
 		static XMFLOAT3 lastPosition = position;
@@ -286,49 +305,49 @@ void FMODAudioSystem::updateGhostPosition(const XMFLOAT3& position) {
 	}
 }
 
+// Updates listener (player) position/orientation
 void FMODAudioSystem::updateListenerPosition(const XMFLOAT3& position, const XMFLOAT3& forward, const XMFLOAT3& up) {
 	if (!studioSystem) return;
 
 	FMOD_3D_ATTRIBUTES attributes = { { 0 } };
 	attributes.position = { position.x, position.y, position.z };
-	attributes.forward = { forward.x, forward.y, forward.z };
-	attributes.up = { up.x, up.y, up.z };
+	attributes.forward = { forward.x, forward.y, forward.z }; // Where listener is facing
+	attributes.up = { up.x, up.y, up.z };// Up direction
 
 	studioSystem->setListenerAttributes(0, &attributes);
 }
 
+// Adjusts ghost whisper volume based on distance to listener
 void FMODAudioSystem::updateGhostWhisperVolume(const XMFLOAT3& listenerPosition) {
 	if (!events.girlWhisper) return;
 
 	FMOD_3D_ATTRIBUTES ghostAttributes;
 	events.girlWhisper->get3DAttributes(&ghostAttributes);
 
-	// Calculate distance and direction using spherical interpolation
+	// Calculate distance between ghost and listener
 	XMVECTOR listenerPos = XMVectorSet(listenerPosition.x, listenerPosition.y, listenerPosition.z, 0.0f);
 	XMVECTOR ghostPos = XMVectorSet(ghostAttributes.position.x, ghostAttributes.position.y, ghostAttributes.position.z, 0.0f);
 	XMVECTOR toListener = XMVectorSubtract(listenerPos, ghostPos);
 	float distance = XMVectorGetX(XMVector3Length(toListener));
 
-	// Logarithmic distance attenuation (more natural perception)
+	// Logarithmic volume fade (matches human hearing)
 	float volume = 1.0f - (log10(1 + distance) / log10(1 + WHISPER_FADE_RANGE));
 	volume = clamp(volume * (1.0f + ghostEffectIntensity * 0.3f), WHISPER_MIN_VOLUME, 1.2f);
 
-	// Get the channel group for additional 3D control
+	// Get channel group for advanced 3D settings
 	FMOD::ChannelGroup* channelGroup;
 	events.girlWhisper->getChannelGroup(&channelGroup);
 
 	if (channelGroup) {
-		// Proper 3D spatialization using available FMOD API
+		// Set sound direction
 		FMOD_VECTOR dir;
 		XMStoreFloat3(reinterpret_cast<XMFLOAT3*>(&dir), XMVector3Normalize(toListener));
-
-		// Set 3D cone orientation (alternative to pan level)
 		channelGroup->set3DConeOrientation(&dir);
 
-		// Dynamic cone settings based on distance
+		// Adjust sound cone based on distance (narrower when close)
 		float coneInside, coneOutside;
 		if (distance < WHISPER_CLOSE_RANGE) {
-			coneInside = 30.0f;
+			coneInside = 30.0f;  // Narrow cone
 			coneOutside = 90.0f;
 		}
 		else if (distance < WHISPER_MID_RANGE) {
@@ -336,33 +355,34 @@ void FMODAudioSystem::updateGhostWhisperVolume(const XMFLOAT3& listenerPosition)
 			coneOutside = 150.0f;
 		}
 		else {
-			coneInside = 90.0f;
+			coneInside = 90.0f;  // Wide cone
 			coneOutside = 180.0f;
 		}
 		channelGroup->set3DConeSettings(coneInside, coneOutside, 0.3f);
 
-		// Smooth Doppler effect
+		// Smooth Doppler effect (pitch change when moving)
 		static float lastRelativeVelocity = 0.0f;
 		XMVECTOR ghostVel = XMVectorSet(ghostAttributes.velocity.x, ghostAttributes.velocity.y, ghostAttributes.velocity.z, 0.0f);
 		float relativeVelocity = XMVectorGetX(XMVector3Dot(ghostVel, XMVector3Normalize(toListener)));
 
-		// Low-pass filter for velocity changes
+		// Low-pass filter for smoother changes
 		float smoothedVelocity = 0.8f * lastRelativeVelocity + 0.2f * relativeVelocity;
 		lastRelativeVelocity = smoothedVelocity;
 
-		// Non-linear Doppler scaling
+		// Adjust Doppler intensity (non-linear)
 		float dopplerLevel = 1.0f + 0.3f * tanh(smoothedVelocity / 5.0f);
 		channelGroup->set3DDopplerLevel(clamp(dopplerLevel, 0.8f, 1.2f));
 
-		// Set spread for better spatialization (alternative to pan level)
-		float spread = 180.0f * (1.0f - volume); // Wider spread when quieter
+		// Wider sound spread when quieter
+		float spread = 180.0f * (1.0f - volume);
 		channelGroup->set3DSpread(spread);
 	}
 
-	// Apply volume with perceptual loudness correction
+	// Apply volume with perceptual correction
 	events.girlWhisper->setVolume(powf(volume, 0.6f));
 }
 
+// Updates ghost sound effects (pitch variations, etc.)
 void FMODAudioSystem::updateGhostEffects(float deltaTime, const XMFLOAT3& listenerPosition) {
 	if (!events.girlWhisper) return;
 
@@ -370,25 +390,28 @@ void FMODAudioSystem::updateGhostEffects(float deltaTime, const XMFLOAT3& listen
 	if (ghostEffectTimer >= GHOST_EFFECT_INTERVAL) {
 		ghostEffectTimer = 0.0f;
 
+		// Get ghost position and distance to listener
 		FMOD_3D_ATTRIBUTES ghostAttrs;
 		events.girlWhisper->get3DAttributes(&ghostAttrs);
 		float distance = sqrtf(powf(listenerPosition.x - ghostAttrs.position.x, 2) +
 			powf(listenerPosition.y - ghostAttrs.position.y, 2) +
 			powf(listenerPosition.z - ghostAttrs.position.z, 2));
 
-		// Use Fletcher-Munson curves for perceived loudness
+		// Adjust effects based on proximity
 		float proximityFactor = 1.0f - min(powf(distance / WHISPER_FADE_RANGE, 0.3f), 1.0f);
 
+		// Randomly apply effects (1 in 3 chance)
 		if (rand() % 3 == 0) {
-			// Natural pitch variation within critical bandwidth
+			// Small pitch variation (creates unnatural feel)
 			float pitch = 1.0f + ((rand() % 11) - 5) * 0.005f * proximityFactor;
 			events.girlWhisper->setPitch(pitch);
 
+			// Extra effect when very close
 			if (distance < WHISPER_CLOSE_RANGE * 1.5f) {
-				// Use transient shaping instead of volume boost
 				FMOD::ChannelGroup* cg;
 				events.girlWhisper->getChannelGroup(&cg);
 				if (cg) {
+					// Add temporary volume boost effect
 					FMOD::System* coreSystem = nullptr;
 					FMOD::DSP* transient = nullptr;
 
@@ -403,36 +426,38 @@ void FMODAudioSystem::updateGhostEffects(float deltaTime, const XMFLOAT3& listen
 	}
 }
 
+// Sets intensity of ghost sound effects (0-1)
 void FMODAudioSystem::setGhostEffectIntensity(float intensity) {
 	ghostEffectIntensity = clamp(intensity, 0.0f, 1.0f);
 }
 
+// Creates ambient sound at island position
 void FMODAudioSystem::createIslandAmbience(const XMFLOAT3& position) {
 	if (!studioSystem) return;
 
+	// Get ambience event
 	FMOD::Studio::EventDescription* eventDesc = nullptr;
 	FMOD_RESULT result = studioSystem->getEvent("event:/Ambience", &eventDesc);
 	if (result != FMOD_OK || !eventDesc) return;
 
+	// Create instance at 3D position
 	FMOD::Studio::EventInstance* instance = nullptr;
 	result = eventDesc->createInstance(&instance);
 	if (result != FMOD_OK || !instance) return;
 
-	// Set 3D attributes
 	FMOD_3D_ATTRIBUTES attributes = { { 0 } };
 	attributes.position = { position.x, position.y, position.z };
 	instance->set3DAttributes(&attributes);
 
-	// Start with full volume (we'll control it in update)
-	instance->setVolume(1.0f); // Changed from 0.0f to 1.0f
+	instance->setVolume(1.0f); // Start at full volume
 	instance->start();
-
-	// Ensure the ambience is playable
 	instance->setPaused(false);
 
-	islandAmbiences.push_back({ instance, position, true }); // Set active to true initially
+	// Store in list of active ambiences
+	islandAmbiences.push_back({ instance, position, true });
 }
 
+// Updates all island ambiences based on listener position
 void FMODAudioSystem::updateIslandAmbiences(const XMFLOAT3& listenerPos, int activeIslandIndex) {
 	if (islandAmbiences.empty()) return;
 
@@ -440,33 +465,29 @@ void FMODAudioSystem::updateIslandAmbiences(const XMFLOAT3& listenerPos, int act
 		auto& ambience = islandAmbiences[i];
 		if (!ambience.instance) continue;
 
-		// Calculate distance (ignore height for simpler calculation)
+		// Calculate horizontal distance (ignore height)
 		float dx = ambience.position.x - listenerPos.x;
 		float dz = ambience.position.z - listenerPos.z;
 		float distance = sqrtf(dx * dx + dz * dz);
 
-		// Determine if this is the active island
 		bool isActiveIsland = (i == activeIslandIndex);
 
-		// Calculate volume based on distance and active status
+		// Calculate volume: full when close, fading with distance
 		float volume = 0.0f;
 		if (isActiveIsland) {
-			// Active island volume curve
 			if (distance < AMBIENCE_MIN_DISTANCE) {
-				volume = 1.0f; // Full volume when close
+				volume = 1.0f; // Full volume
 			}
 			else if (distance < AMBIENCE_MAX_DISTANCE) {
-				// Linear fade from MIN to MAX distance
+				// Linear fade between min and max distance
 				volume = 1.0f - ((distance - AMBIENCE_MIN_DISTANCE) /
 					(AMBIENCE_MAX_DISTANCE - AMBIENCE_MIN_DISTANCE));
 			}
-			// Else volume stays 0
 		}
 
-		// Apply volume directly (no parameter needed)
 		ambience.instance->setVolume(volume);
 
-		// Update 3D position
+		// Update 3D position (even if not audible)
 		FMOD_3D_ATTRIBUTES attributes = { { 0 } };
 		attributes.position = { ambience.position.x, ambience.position.y, ambience.position.z };
 		ambience.instance->set3DAttributes(&attributes);
@@ -479,6 +500,7 @@ void FMODAudioSystem::updateIslandAmbiences(const XMFLOAT3& listenerPos, int act
 	}
 }
 
+// Stops all island ambience sounds
 void FMODAudioSystem::stopAllIslandAmbience() {
 	for (auto& ambience : islandAmbiences) {
 		if (ambience.instance) {

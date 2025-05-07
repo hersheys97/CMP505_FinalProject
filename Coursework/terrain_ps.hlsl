@@ -52,7 +52,7 @@ cbuffer SonarBuffer : register(b1)
     bool sonarActive;
     float sonarTime;
     float sonarDuration;
-    float padding;
+    bool tessOn;
 };
 
 /****************************************************************************************************************************/
@@ -270,8 +270,7 @@ float4 main(InputType input) : SV_TARGET
     finalColour = saturate(finalColour);
     
     /****************************************************************************************************************************/
-    // Sonar wireframe overlay
-    
+
     // Sonar wireframe overlay
     if (sonarActive)
     {

@@ -1,7 +1,7 @@
 #include "Ghost.h"
 #include <algorithm>
 
-Ghost::Ghost() :sceneData(nullptr), audioSystem(nullptr), voronoiIslands(nullptr)
+Ghost::Ghost() :sceneData(nullptr), audioSystem(nullptr), islandBounds(nullptr)
 {
 }
 
@@ -16,7 +16,7 @@ void Ghost::Update(float deltaTime, const XMFLOAT3& playerPosition) {
 	if (sceneData->ghostData.isActive && !sceneData->ghostData.respondingToSonar) sceneData->ghostData.aliveTime -= deltaTime;
 
 	if ((!sceneData->ghostData.isActive || sceneData->ghostData.aliveTime <= 0.f) &&
-		voronoiIslands && !voronoiIslands->GetIslands().empty()) {
+		islandBounds && !islandBounds->GetIslands().empty()) {
 		Respawn();
 	}
 	else {
@@ -46,12 +46,12 @@ void Ghost::Respawn() {
 	if (audioSystem->isWhisperPlaying()) audioSystem->stopGhostWhisper();
 
 	if (!sceneData->ghostData.respondingToSonar &&
-		voronoiIslands &&
-		!voronoiIslands->GetIslands().empty()) {
+		islandBounds &&
+		!islandBounds->GetIslands().empty()) {
 
-		const std::vector<Voronoi::Island>& islands = voronoiIslands->GetIslands();
+		const std::vector<Island>& islands = islandBounds->GetIslands();
 		sceneData->ghostData.currentIslandIndex = rand() % islands.size();
-		const Voronoi::Island& island = islands[sceneData->ghostData.currentIslandIndex];
+		const Island& island = islands[sceneData->ghostData.currentIslandIndex];
 
 		sceneData->ghostData.position = { island.position.x + (rand() % 10 - 5), island.position.y + 3.f, island.position.z + (rand() % 10 - 5) };
 		sceneData->ghostData.velocity = { randomFloat(-1.f, 1.f) * 2.f,0.f,randomFloat(-1.f, 1.f) * 2.f };
@@ -106,13 +106,13 @@ void Ghost::UpdateSonarResponse(float deltaTime) {
 }
 
 void Ghost::HandleNormalWandering(float deltaTime) {
-	if (!voronoiIslands ||
+	if (!islandBounds ||
 		sceneData->ghostData.currentIslandIndex < 0 ||
-		sceneData->ghostData.currentIslandIndex >= voronoiIslands->GetIslands().size()) {
+		sceneData->ghostData.currentIslandIndex >= islandBounds->GetIslands().size()) {
 		return;
 	}
 
-	const auto& island = voronoiIslands->GetIslands()[sceneData->ghostData.currentIslandIndex];
+	const auto& island = islandBounds->GetIslands()[sceneData->ghostData.currentIslandIndex];
 	float halfSize = 25.0f;
 	float minX = island.position.x - halfSize;
 	float maxX = island.position.x + halfSize;

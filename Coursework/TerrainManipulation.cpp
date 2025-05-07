@@ -326,7 +326,7 @@ void TerrainManipulation::setShaderParameters(ID3D11DeviceContext* deviceContext
 	sonarPtr->sonarActive = sceneData->sonarData.isActive;
 	sonarPtr->sonarTime = sceneData->sonarData.sonarTime;
 	sonarPtr->sonarDuration = sceneData->sonarData.sonarDuration;
-	sonarPtr->padding = 0.f; // Padding to ensure the structure is 16-byte aligned
+	sonarPtr->tessOn = sceneData->tessMesh;
 	deviceContext->Unmap(sonarBuffer, 0);
 	deviceContext->PSSetConstantBuffers(1, 1, &sonarBuffer);
 

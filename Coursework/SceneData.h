@@ -11,7 +11,7 @@ This header file is used to store all the data into a single struct for ease of 
 
 // Forward declarations
 class Light;
-class VoronoiIslands;
+class Islands;
 class Player;
 
 // Light Data Structure
@@ -161,7 +161,7 @@ public:
 	void resetView() {
 		// Reset light data
 		lightData.ambientColour[0] = 1.f; lightData.ambientColour[1] = 1.f; lightData.ambientColour[2] = 1.f; lightData.ambientColour[3] = 1.0f;
-		lightData.diffuseColour[0] = 0.08f; lightData.diffuseColour[1] = 0.08f; lightData.diffuseColour[2] = 0.1f; lightData.diffuseColour[3] = 1.0f;
+		lightData.diffuseColour[0] = 1.f; lightData.diffuseColour[1] = 1.f; lightData.diffuseColour[2] = 1.f; lightData.diffuseColour[3] = 1.0f;
 		lightData.specularColour[0] = 0.8f; lightData.specularColour[1] = 0.9f; lightData.specularColour[2] = 1.0f; lightData.specularColour[3] = 1.0f;
 		lightData.spec_pow = 32.f;
 		lightData.pointLight_pos1[0] = 56.8f; lightData.pointLight_pos1[1] = 16.25f; lightData.pointLight_pos1[2] = 78.75f;

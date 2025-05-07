@@ -17,7 +17,7 @@
 #include "SimpleTexture.h"
 #include "SceneData.h"
 #include "Player.h"
-#include "VoronoiIslands.h"
+#include "Islands.h"
 #include "FMODAudioSystem.h"
 #include "Ghost.h"
 #include "TeapotSpotlight.h"
@@ -130,8 +130,8 @@ private:
 
 	PlaneMesh* testTess;
 
-	// Voronoi
-	unique_ptr<Voronoi::VoronoiIslands> voronoiIslands;
+	// Islands
+	unique_ptr<Islands> islandBounds;
 
 	float SCREEN_WIDTH = 0.f;
 	float SCREEN_HEIGHT = 0.f;

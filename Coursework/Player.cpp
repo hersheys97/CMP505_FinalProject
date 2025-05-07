@@ -22,7 +22,7 @@ T clamp(T v, T lo, T hi) {
 Player::Player() :
 	position({ 58.881f, 8.507f, 68.2f }),
 	velocity({ 0.f, 0.f, 0.f }),
-	rotation({ 0.f, 90.f, 0.f }),
+	rotation({ 0.f, 0.0f, 0.f }),
 	speed(40.0f),
 	camEyeHeight(3.f),
 	jumpForce(7.0f),
@@ -123,11 +123,12 @@ void Player::update(float deltaTime, Input* input, TerrainManipulation* terrain)
 		resetParams();
 	}
 }
-void Player::updatePlayer(float deltaTime, Input* input, TerrainManipulation* terrain, Camera* camera, FMODAudioSystem* audioSystem, Voronoi::VoronoiIslands* islands)
+void Player::updatePlayer(float deltaTime, Input* input, TerrainManipulation* terrain, Camera* camera, FMODAudioSystem* audioSystem, Islands* islands)
 {
 	update(deltaTime, input, terrain);
 	updateCameraPosition(camera);
 	handleTerrainCollision(deltaTime, terrain, camera);
+	HandlePickupCollisions(islands, audioSystem);
 
 	// Update audio listener
 	const XMFLOAT3 camPos = camera->getPosition();
@@ -195,7 +196,16 @@ void Player::handleTerrainCollision(float deltaTime, TerrainManipulation* terrai
 	sceneData->playerData.lastCameraPosition = camPos;
 }
 
-void Player::handlePlayModeReset(Voronoi::VoronoiIslands* islands, TerrainManipulation* terrain, Camera* camera)
+void Player::HandlePickupCollisions(Islands* islands, FMODAudioSystem* audioSystem) {
+	if (!islands) return;
+
+	XMFLOAT3 pickupPosition;
+	const float playerCollisionRadius = 3.0f;
+
+	if (islands->CheckPickupCollision(position, playerCollisionRadius, pickupPosition)) audioSystem->playOneShot("event:/Pickup");
+}
+
+void Player::handlePlayModeReset(Islands* islands, TerrainManipulation* terrain, Camera* camera)
 {
 	if (!sceneData) return;
 
@@ -242,7 +252,7 @@ void Player::updateCameraPosition(Camera* camera)
 void Player::resetParams()
 {
 	velocity = { 0.f, 0.f, 0.f };
-	rotation = { 0.f, 90.f, 0.f };
+	rotation = { 0.f, 0.0f, 0.f };
 	isJumping = false;
 }
 

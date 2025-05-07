@@ -13,7 +13,7 @@ A simple sinusoidal terrain (no external libs) and hooked up smooth collision-sl
 #pragma once
 
 #include "DXF.h"
-#include "VoronoiIslands.h"	
+#include "Islands.h"	
 #include <memory>
 #include <vector>
 #include <utility>
@@ -78,7 +78,7 @@ private:
 		bool sonarActive;
 		float sonarTime;
 		float sonarDuration;
-		float padding;
+		bool tessOn;
 	};
 
 	ID3D11Buffer* matrixBuffer;
@@ -93,8 +93,8 @@ private:
 
 
 	// Island and bridge data
-	unique_ptr<Voronoi::VoronoiIslands> voronoiIslands;
-	const vector<Voronoi::Island>* m_islands = nullptr;
+	unique_ptr<Islands> islandBounds;
+	const vector<Island>* m_islands = nullptr;
 	float m_regionSize = 0.0f;
 	float m_bridgeWidth = 5.0f;
 	vector<pair<XMFLOAT3, XMFLOAT3>> m_bridges;
@@ -126,13 +126,13 @@ public:
 	}
 
 	// Setters
-	void setIslands(const vector<Voronoi::Island>& islands, float regionSize) {
+	void setIslands(const vector<Island>& islands, float regionSize) {
 		m_islands = &islands;
 		m_regionSize = regionSize;
 	}
 
-	void setBridges(const vector<Voronoi::Bridge>& bridges,
-		const vector<Voronoi::Island>& islands) {
+	void setBridges(const vector<Bridge>& bridges,
+		const vector<Island>& islands) {
 		m_bridges.clear();
 		m_bridges.reserve(bridges.size());
 

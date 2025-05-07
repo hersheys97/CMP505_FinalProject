@@ -14,7 +14,7 @@ public:
 
 	// Core gameplay functions
 	void updatePlayer(float deltaTime, Input* input, TerrainManipulation* terrain,
-		Camera* camera, FMODAudioSystem* audioSystem, Voronoi::VoronoiIslands* islands);
+		Camera* camera, FMODAudioSystem* audioSystem, Islands* islands);
 
 	// Movement and camera
 	void update(float deltaTime, Input* input, TerrainManipulation* terrain);
@@ -22,7 +22,8 @@ public:
 
 	// Gameplay systems
 	void handleSonar(Input* input, FMODAudioSystem* audioSystem);
-	void handlePlayModeReset(Voronoi::VoronoiIslands* islands, TerrainManipulation* terrain, Camera* camera);
+	void handlePlayModeReset(Islands* islands, TerrainManipulation* terrain, Camera* camera);
+	void HandlePickupCollisions(Islands* islands, FMODAudioSystem* audioSystem);
 
 	// State management
 	void resetParams();
@@ -44,7 +45,7 @@ private:
 	SceneData* sceneData = nullptr;
 	XMFLOAT3 position = { 58.881f, 8.507f, 68.2f };
 	XMFLOAT3 velocity = { 0.f, 0.f, 0.f };
-	XMFLOAT3 rotation = { 0.f, 0.f, 0.f };
+	XMFLOAT3 rotation = { 0.f, 90.f, 0.f };
 
 	// Configuration
 	float speed = 20.0f;

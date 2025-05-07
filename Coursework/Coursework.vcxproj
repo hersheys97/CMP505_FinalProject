@@ -181,7 +181,7 @@
     <ClCompile Include="TeapotSpotlight.cpp" />
     <ClCompile Include="TerrainDepthShader.cpp" />
     <ClCompile Include="TerrainManipulation.cpp" />
-    <ClCompile Include="VoronoiIslands.cpp" />
+    <ClCompile Include="Islands.cpp" />
     <ClCompile Include="WaterDepthShader.cpp" />
     <ClCompile Include="WaterShader.cpp" />
   </ItemGroup>
@@ -201,7 +201,7 @@
     <ClInclude Include="TeapotSpotlight.h" />
     <ClInclude Include="TerrainDepthShader.h" />
     <ClInclude Include="TerrainManipulation.h" />
-    <ClInclude Include="VoronoiIslands.h" />
+    <ClInclude Include="Islands.h" />
     <ClInclude Include="WaterDepthShader.h" />
     <ClInclude Include="WaterShader.h" />
   </ItemGroup>
